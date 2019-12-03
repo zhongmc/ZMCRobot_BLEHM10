@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "C:\\arduino-1.8.10\\tools\\**",
+                "C:\\arduino-1.8.10\\hardware\\arduino\\avr\\**",
+                "c:\\xuexi\\robot\\ZMCRobot\\libraries\\**"
+            ],
+            "forcedInclude": [
+                "C:\\arduino-1.8.10\\hardware\\arduino\\avr\\cores\\arduino\\Arduino.h"
+            ],
+            "intelliSenseMode": "msvc-x64"
+        }
+    ],
+    "version": 4
+}

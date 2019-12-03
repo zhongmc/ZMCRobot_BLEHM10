@@ -1,0 +1,7 @@
+{
+    "C_Cpp.intelliSenseEngineFallback": "Enabled",
+    "files.associations": {
+        "algorithm": "cpp",
+        "limits": "cpp"
+    }
+}

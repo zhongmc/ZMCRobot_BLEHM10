@@ -1,0 +1,127 @@
+#include "ZMCRobot.h"
+#include <CurieBle.h>
+
+#include "robot.h"
+
+#include "BleFuncs.h"
+
+
+
+BLEPeripheral blePeripheral;
+// BLE Peripheral Device (the board you're programming)
+
+BLEService zmcRobotService("3a37"); // BLE Heart Rate Service
+
+// BLE Heart Rate Measurement Characteristic"
+
+BLECharacteristic zmcRobotSettingsChar("3a38",
+                                       // standard 16-bit characteristic UUID
+                                       BLERead | BLEWrite | BLENotify, 19); //KP KI KD atObstacle unsafe velocity
+
+BLECharacteristic zmcRobotDriveChar("3a39",
+                                    // standard 16-bit characteristic UUID
+                                    BLERead | BLEWrite, 19); //CMD:2, datas;    speed tl tr | BLENotify
+
+BLECharacteristic zmcRobotStateChar("3a3a",
+                                    // standard 16-bit characteristic UUID
+                                    BLERead | BLENotify, 19); // x,y,theta,irdis 0-4, volt of bat | BLENotify
+
+bool bleConnected = false;
+
+// remote clients will be able to get notifications if this characteristic changes
+// the characteristic is 2 bytes long as the first field needs to be "Flags" as per BLE specifications
+
+void initBluetooth()
+{
+
+  Serial.println("init BLE...");
+
+  bleConnected = false;
+  /*The name can be changed but maybe be truncated based on space left in advertisement packet */
+  blePeripheral.setLocalName("ZMC Robot");
+
+  blePeripheral.setAdvertisedServiceUuid(zmcRobotService.uuid());
+  // add the service UUID
+  blePeripheral.addAttribute(zmcRobotService);
+
+  // add the Heart Rate Measurement characteristic
+  blePeripheral.addAttribute(zmcRobotSettingsChar);
+  blePeripheral.addAttribute(zmcRobotDriveChar);
+  blePeripheral.addAttribute(zmcRobotStateChar);
+
+  /* Now activate the BLE device. It will start continuously transmitting BLE
+    advertising packets and will be visible to remote BLE central devices
+    until it receives a new connection */
+
+  // assign event handlers for connected, disconnected to peripheral
+  blePeripheral.setEventHandler(BLEConnected, blePeripheralConnectHandler);
+  blePeripheral.setEventHandler(BLEDisconnected, blePeripheralDisconnectHandler);
+
+  // assign event handlers for characteristic
+  zmcRobotSettingsChar.setEventHandler(BLEWritten, configCharacteristicWritten);
+  zmcRobotDriveChar.setEventHandler(BLEWritten, driveCharacteristicWritten);
+
+  blePeripheral.begin();
+  Serial.println(("BLE start..."));
+}
+
+void blePeripheralConnectHandler(BLECentral &central)
+{
+
+  bleConnected = true;
+  // central connected event handler
+  Serial.print("BLE Conn: ");
+  Serial.println(central.address());
+
+  Serial.print("UUID:");
+  Serial.println(zmcRobotService.uuid());
+
+  //  sendRobotConfigValue();
+}
+
+void blePeripheralDisconnectHandler(BLECentral &central)
+{
+
+  bleConnected = false;
+  // central disconnected event handler
+  Serial.print("BLE disc: ");
+  Serial.println(central.address());
+}
+
+void configCharacteristicWritten(BLECentral &central, BLECharacteristic &characteristic)
+{
+  // central wrote new value to characteristic, update LED
+  Serial.println("cc w: ");
+  setConfigValue(characteristic.value());
+}
+
+void driveCharacteristicWritten(BLECentral &central, BLECharacteristic &characteristic)
+{
+  // central wrote new value to characteristic, update LED
+  Serial.print("drv,cmd:");
+  //the first two chas as CMD
+  const byte *data = characteristic.value();
+
+  processBleCommandPackage( data );
+
+}
+
+void sendStatePkgToBle(byte *buf, int len );
+{
+  if (!bleConnected)
+    return;
+  bool ret = zmcRobotStateChar.setValue(buf, 19);
+  if (!ret)
+  {
+    Serial.println("wt bt F!");
+  }
+}
+
+
+
+void sendSettingsPkgToBle(byte *settingsArray, int len)
+{
+  if (!bleConnected)
+    return;
+  zmcRobotSettingsChar.setValue(settingsArray, 18);
+}
