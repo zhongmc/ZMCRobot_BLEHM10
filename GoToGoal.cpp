@@ -72,14 +72,19 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
       state = 0;
       lastError = 0;
       lastErrorIntegration = 0;
+      Serial.println("CHG to Normal GTG...");
     }
   }
   else if (d < 0.3 && d > 0.02)
   {
     if (state == 2 && d > 0.03)
+    {
+      Serial.println("CHG to D Ctrl 1...");
       state = 1;         // change to d cntrol
+    }
     else if (state == 0) // if d small enougth, stay theta control
     {
+      Serial.println("CHG to D Ctrl 2 ...");
       state = 1;
       lastVEI = 0;
       lastVE = 0;
@@ -90,6 +95,7 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
   {
     if (state != 2)
     {
+      Serial.println("CHG to Theta Ctrl...");
       state = 2;
       lastErrorIntegration = 0;
       lastError = 0;
@@ -125,6 +131,14 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
     lastError = e;
     output->v = input->v / (1 + abs(robot->w) / 2);
     output->w = w;
+
+      Serial.print(e, 3);
+      Serial.write(',');
+      Serial.print(e_I, 3);
+      Serial.write(',');
+      Serial.print(w, 3);
+      Serial.write(',');
+
   }
   // else
   if (state == 1) //距离控制

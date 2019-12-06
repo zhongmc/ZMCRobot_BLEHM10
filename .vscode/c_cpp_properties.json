@@ -5,6 +5,7 @@
             "includePath": [
                 "C:\\arduino-1.8.10\\tools\\**",
                 "C:\\arduino-1.8.10\\hardware\\arduino\\avr\\**",
+                "C:\\arduino-1.8.10\\libraries\\**",
                 "c:\\xuexi\\robot\\ZMCRobot\\libraries\\**"
             ],
             "forcedInclude": [

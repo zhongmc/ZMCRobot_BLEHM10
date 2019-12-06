@@ -35,8 +35,8 @@ Supervisor::Supervisor()
   // m_tkp = 20, m_tki = 0.7, m_tkd = 0.0;  // theta
 
   //1：90
-  m_pkp = 2.0, m_pki = 0.5, m_pkd = 0.0; // position
-  m_tkp = 4, m_tki = 0.5, m_tkd = 0.0; // theta
+  m_pkp = 1.50, m_pki = 0.01, m_pkd = 0.0; // position
+  m_tkp = 4, m_tki = 0.1, m_tkd = 0.0; // theta
 
   mSimulateMode = false;
   mIgnoreObstacle = false;
@@ -302,6 +302,22 @@ void Supervisor::execute(long left_ticks, long right_ticks, double dt)
 
   m_currentController->execute(&robot, &m_input, &m_output, dt);
   // double obsDis;
+  
+/*    robot 中 ensure 中处理速度与转弯的关系
+ if (m_output.w  != 0 &&  m_output.v != 0) //拐弯减速
+  {
+    double m_v = m_output.v;
+    double sw = abs(m_output.w);
+    m_v = -0.027 * sw + m_input.v;
+      // m_v = -0.067 * sw + 0.1;
+    if (m_v < 0.05)
+      m_v = 0.05;
+    if (m_output.v < 0)
+      m_v = -m_v;
+    m_output.v = m_v;
+  }
+*/
+  
   // obsDis = robot.getObstacleDistance();
   PWM_OUT pwm = robot.getPWMOut(m_output.v, m_output.w);
 
@@ -566,7 +582,7 @@ void Supervisor::getIRDistances(double dis[5])
 
 void Supervisor::readIRDistances(double dis[5])
 {
-  robot.readIRSensors();
+  robot.readIRSensors( 0 );
   IRSensor **irSensors = robot.getIRSensors();
   for (int i = 0; i < 5; i++)
   {

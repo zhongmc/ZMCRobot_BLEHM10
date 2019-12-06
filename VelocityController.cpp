@@ -45,52 +45,18 @@ void VelocityController::setGoal(double v, double w)
   }
   curW = w;
   mW = w;
+
   //reset the controller ???
   lastErrorIntegration = 0;
   lastError = 0;
-
-  if (mW != 0)
-  {
-
-    m_v = v;
-
-    double sw = abs(mW);
-    if (sw > 1.5)
-      sw = 1.5;
-
-    if (v != 0 && abs(v) > 0.12) //按照w 减速
-    {
-      m_v = -0.027 * sw + 0.12;
-      // m_v = -0.067 * sw + 0.1;
-      if (m_v < 0.08)
-        m_v = 0.08;
-      if (v < 0)
-        m_v = -m_v;
-    }
-
-    // D = -maxD*mw/PI + maxD
-    // w = 2*V/(2*D+L)
-
-    /*   double maxD = 0.2;
-    m_w = 2 * m_v / (2 * (-maxD * 2 * sw / PI + maxD) + 0.16);
-    if (mW < 0)
-      m_w = -m_w;
-    if (v == 0)
-      m_w = 2 * mW;
-
-      */
-
-    m_w = sw;
-    if (mW < 0)
-      m_w = -sw;
+  m_v = v;
+  m_w = w;
 
     log("SG %s,%s: %s,%s\n",
         floatToStr(0, v),
         floatToStr(1, w),
         floatToStr(2, m_v),
         floatToStr(3, m_w));
-  }
-  log("SG %s\n", floatToStr(0, v));
 }
 
 //depricated

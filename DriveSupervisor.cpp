@@ -191,11 +191,11 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double gyro, do
   }
 
  log("RP%d,%d,%d,%d,%d\n",
-      (int)(10000 * robot.x),
-      (int)(10000 * robot.y),
-      (int)(10000 * robot.theta),
-      (int)(10000 * robot.w),
-      (int)(10000 * robot.velocity));
+      (int)(1000 * robot.x),
+      (int)(1000 * robot.y),
+      (int)(1000 * robot.theta),
+      (int)(1000 * robot.w),
+      (int)(1000 * robot.velocity));
 
   //   uint32_t nowMicros = micros();
 

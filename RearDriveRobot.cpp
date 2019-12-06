@@ -16,23 +16,25 @@ RearDriveRobot::RearDriveRobot()
   // init(0.0312, 0.162, 390, 390, 50, 180, GP2Y0A21);
 
   //黑色轮子，自制板 新1：90电机
-  init(0.0317, 0.162, 990, 990, 20, 80, GP2Y0A21);
+  init(0.0317, 0.162, 990, 990, 19, 86, GP2Y0A21);
   
-  max_w = 0.8; 
+  max_w = 1.5; 
 
-  vel_pwm_a = 28;
-  vel_pwm_b = -20;
+  vel_pwm_a = 13;
+  vel_pwm_b = 24;
 
 //pwm to tickes paramaters
   //  y = -0.0341x2 + 16.786x - 633.3
-  pta_l = -0.0341;
-  ptb_l = 16.786;
-  ptc_l = -633.3;
+  //y = -0.0585x2 + 21.217x - 564.14
+  pta_l = -0.0585;
+  ptb_l = 21.217;
+  ptc_l = -564.14;
 
   //y = -0.0367x2 + 17.236x - 630.72
-  pta_r = -0.0367;
-  ptb_r = 17.236;
-  ptc_r = -630.72;
+//y = -0.0707x2 + 23.943x - 709.5
+  pta_r = -0.0707;
+  ptb_r = 23.943;
+  ptc_r = -709.5;
 
   // int maxPWM, minPWM;
   // // pwm = vel_pwm_a * vel + vel_pwm_b
@@ -69,8 +71,8 @@ RearDriveRobot::RearDriveRobot()
   // mPIDSettings.kd = 0.0; //0.02; //0.2
 
   //1:90
-  mPIDSettings.kp = 1.2;    // 5; //25;  //20 0.5 2; 2019-01-26:   5, 0.02, 0.9; 5, 0.05, 1.2; 5,0.08,1.2 2019-02-09 5, 0.01, 0.2
-  mPIDSettings.ki = 0.01;  //.4; // 0.01;
+  mPIDSettings.kp = 2;    // 5; //25;  //20 0.5 2; 2019-01-26:   5, 0.02, 0.9; 5, 0.05, 1.2; 5,0.08,1.2 2019-02-09 5, 0.01, 0.2
+  mPIDSettings.ki = 0.05;  //.4; // 0.01;
   mPIDSettings.kd = 0.0; //0.02; //0.2
 }
 
@@ -108,90 +110,88 @@ PWM_OUT RearDriveRobot::getPWMOut(double v, double w)
 Vel RearDriveRobot::ensure_w(double v, double w)
 {
 
-  if (v == 0)
-  {
-    Vel vel = uni_to_diff(v, w);
-    if( abs(vel.vel_l) < min_vel )
+
+		if( v == 0 ) //
+		{
+  		Vel vel = uni_to_diff(v, w);
+			if( abs( vel.vel_l ) > 1.5*min_vel )
+			{
+				if( vel.vel_l < 0 )
+				{
+					vel.vel_l = -1.5*min_vel;
+					vel.vel_r = 1.5*min_vel;
+				}
+				else
+				{
+					vel.vel_l = 1.5*min_vel;
+					vel.vel_r = -1.5*min_vel;
+
+				}
+			}
+
+    Serial.print(w, 3);
+    Serial.write(',');
+    Serial.print(v, 3);
+    Serial.write(',');
+    Serial.print(v, 3);
+    Serial.write(',');
+    Serial.print(vel.vel_l, 3);
+    Serial.write(',');
+    Serial.println(vel.vel_r, 3);
+			return vel;			
+		}
+
+		double sw = w;
+		if (sw > max_w)
+		  sw = max_w;  
+		else if (sw < -max_w)
+		  sw = -max_w;
+    double sv = abs(v);
+    sv = -sv/max_w * abs(sw) + sv;
+    if( sv <= 0 )
+      sv = 0.01;
+
+    if( v < 0  )
+      sv = -sv;
+		
+    Vel vel = uni_to_diff(sv, sw);
+	  
+		if (vel.vel_l * vel.vel_r >= 0)
     {
-        if( vel.vel_l < 0 )
-        {
-            vel.vel_l = -min_vel;
-            vel.vel_r = min_vel;
-        }
-        else
-        {
-            vel.vel_l = min_vel;
-            vel.vel_r = -min_vel;
-        }
-   }
-    return vel;
-  }
+    Serial.print(sw, 3);
+    Serial.write(',');
+    Serial.print(v, 3);
+    Serial.write(',');
+    Serial.print(sv, 3);
+    Serial.write(',');
+    Serial.print(vel.vel_l, 3);
+    Serial.write(',');
+    Serial.println(vel.vel_r, 3);      
+		  return vel;
+    }  
+		if (abs(vel.vel_l) > abs(vel.vel_r)) 
+		{
+		  vel.vel_r = 0;
+		}
+		else
+		  vel.vel_l = 0;
+	  
+    Serial.print(sw, 3);
+    Serial.write(',');
+    Serial.print(v, 3);
+    Serial.write(',');
+    Serial.print(sv, 3);
+    Serial.write(',');
+    Serial.print(vel.vel_l, 3);
+    Serial.write(',');
+    Serial.println(vel.vel_r, 3);
 
-  double sw = w;
-  if (sw > max_w)
-    sw = max_w;
-  else if (sw < -max_w)
-    sw = -max_w;
-  Vel vel = uni_to_diff(v, sw);
 
-  if (vel.vel_l * vel.vel_r >= 0)
-    return vel;
 
-  if (abs(vel.vel_l) > abs(vel.vel_r))
-  {
-    vel.vel_r = 0;
-  }
-  else
-    vel.vel_l = 0;
 
-  return vel;
+		return vel;		
 
-  // if (abs(v) > 0)
-  // {
-  //   if (abs(w) > 1.2)
-  //   {
-  //     vel = uni_to_diff(v, w);
-  //     vel = zeroMinVel(vel);
-  //     return vel;
-  //   }
 
-  //   Vel vel_d = uni_to_diff(abs(v), w); // w_lim);
-
-  //   vel.vel_r = vel_d.vel_r;
-  //   vel.vel_l = vel_d.vel_l;
-
-  //   if (vel.vel_l > max_vel)
-  //     vel.vel_l = max_vel;
-  //   if (vel.vel_r > max_vel)
-  //     vel.vel_r = max_vel;
-
-  //   if (vel.vel_l < 0)
-  //     vel.vel_l = 0;
-  //   if (vel.vel_r < 0)
-  //     vel.vel_r = 0;
-
-  //   if (v < 0)
-  //   {
-  //     vel.vel_l = -vel.vel_l;
-  //     vel.vel_r = -vel.vel_r;
-  //   }
-  // }
-  // else
-  // {
-  //   vel = uni_to_diff(0, w);
-  //   vel = zeroMinVel(vel);
-  //   // if (vel.vel_l < 0)
-  //   // {
-  //   //   vel.vel_l = 0;
-  //   //   vel.vel_r = min_vel + 0.5;
-  //   // }
-  //   // else
-  //   // {
-  //   //   vel.vel_r = 0;
-  //   //   vel.vel_l = min_vel + 0.5;
-  //   // }
-  // }
-  // return vel;
 }
 
 /*

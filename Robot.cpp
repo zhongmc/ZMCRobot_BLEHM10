@@ -114,8 +114,8 @@ void Robot::updateState(long left_ticks, long right_ticks, double gyro, double a
   if (prev_right_ticks == right_ticks && prev_left_ticks == left_ticks)
   {
     w = 0;
-    readIRSensors();
     velocity = 0;
+    readIRSensors( dt );
     return; //no change
   }
 
@@ -150,7 +150,7 @@ void Robot::updateState(long left_ticks, long right_ticks, double gyro, double a
   theta = theta + phi;
   theta = atan2(sin(theta), cos(theta));
 
-  readIRSensors();
+  readIRSensors(dt);
 }
 
 
@@ -160,8 +160,8 @@ void Robot::updateState(long left_ticks, long right_ticks, double dt)
   if (prev_right_ticks == right_ticks && prev_left_ticks == left_ticks)
   {
     w = 0;
-    readIRSensors();
     velocity = 0;
+    readIRSensors(dt);
     return; //no change
   }
 
@@ -191,10 +191,10 @@ void Robot::updateState(long left_ticks, long right_ticks, double dt)
   theta = theta + phi;
   theta = atan2(sin(theta), cos(theta));
 
-  readIRSensors();
+  readIRSensors(dt);
 }
 
-void Robot::readIRSensors()
+void Robot::readIRSensors(double dt)
 {
   double sinTheta = sin(theta);
   double cosTheta = cos(theta);
@@ -205,7 +205,7 @@ void Robot::readIRSensors()
       irSensors[i]->readPosition();
   }
 
-  double maxDis = velocity / 10;
+  double maxDis = velocity * dt;
 
   for (int i = 0; i < 5; i++)
   {
@@ -275,7 +275,7 @@ void Robot::getRobotInfo()
   else
     Serial.print("IR [GP2Y0A21]:");
 
-  readIRSensors();
+  readIRSensors( 0 );
 
   for (int i = 0; i < 5; i++)
   {

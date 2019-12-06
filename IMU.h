@@ -35,6 +35,7 @@ public:
 
   // void  calculateAngle(double dt);
   // double getKalmanAngle() { return m_kalman_angle; };
+ void debugOut();
 
 private:
   //传感器角度（atan（ax/ay）, kalman, madgwick filter, Kalman1

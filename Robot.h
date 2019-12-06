@@ -107,7 +107,7 @@ public:
 
   void getRobotInfo();
 
-  void readIRSensors();
+  void readIRSensors(double dt);
 
   double wheel_radius;
   double wheel_base_length;

@@ -240,8 +240,8 @@ void loop()
   unsigned long millisNow = millis();
   if (millisNow - millisPrev >= 100)
   {
-     mIMU.readIMU(0);           //1/GYRO_RATE
-     mIMU.calculateAttitute(0); //1/GYRO_RATE
+     mIMU.readIMU((millisNow - millisPrev)/1000.0);           //1/GYRO_RATE
+     mIMU.calculateAttitute(  (millisNow - millisPrev)/1000.0); //1/GYRO_RATE
 
     millisPrev = millisNow;
     if (currentState == STATE_GOTOGOAL)
@@ -444,7 +444,7 @@ bool isBatteryLow()
 #if OP_VOLTAGE == VOLT33
     batteryVoltage = (double)analogRead(VOLT_IN_PIN) * 0.0352771 + 0.2;
 #else //5V
-    batteryVoltage = (double)analogRead(VOLT_IN_PIN) * 0.0537109375 +0.7;
+    batteryVoltage = (double)analogRead(VOLT_IN_PIN) * 0.0537109375 + 0.9;
 #endif
 
   if ((batteryVoltage < 9 && batteryVoltage < 7.2) || (batteryVoltage > 9 && batteryVoltage < 11.2)) // && batteryVoltage > 5) // Equal to 3.4V per cell - don't turn on if it's below 5V, this means that no battery is connected

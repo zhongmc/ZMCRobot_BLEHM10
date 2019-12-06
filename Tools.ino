@@ -232,12 +232,13 @@ void processCommand(char *buffer, int bufferLen)
 
   else if( ch0 == 'i' && ch1 == 'm')  //imu info
   {
-    Serial.print("IMU: ");
-    Serial.print(mIMU.getRoll());
-    Serial.write(',');
-    Serial.print(mIMU.getPitch());
-    Serial.write(',');
-    Serial.println(mIMU.getYaw());
+    // Serial.print("IMU: ");
+    // Serial.print(mIMU.getRoll());
+    // Serial.write(',');
+    // Serial.print(mIMU.getPitch());
+    // Serial.write(',');
+    // Serial.println(mIMU.getYaw());
+    mIMU.debugOut();
 
   }
   else if (ch0 == 'g' && ch1 == 'o') //start go to goal

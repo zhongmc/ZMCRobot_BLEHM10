@@ -146,6 +146,18 @@ void IMU::calculateAttitute(double dt)
   filter.updateIMU(gx, gy, gz, ax, ay, az);
 }
 
+
+void IMU::debugOut()
+{
+    Serial.println("IMU info (yaw,pitch,roll)：");
+    Serial.print("madgwick:");
+    Serial.print(filter.getYaw(), 2); 
+    Serial.print(", "); 
+    Serial.print(filter.getPitch(), 2); 
+    Serial.print(", "); 
+    Serial.println(filter.getRoll(), 2); 
+}
+
 //call readIMU() first
 // void IMU::calculateAngle(double dt)
 // {

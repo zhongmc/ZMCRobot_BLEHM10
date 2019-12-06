@@ -64,7 +64,11 @@ void IRSensor::readPosition(double xs, double ys, double thetas, byte pin)
 
 void IRSensor::readPosition()
 {
-  int digVal = analogRead(anologPin);
+  int digVal = 0;
+  for( int i=0; i<5; i++ )
+    digVal+=analogRead(anologPin);
+    digVal = digVal/5;
+    
   lastDistance = distance;
   distance = getDistance(digVal);
   if (bOpenFilter) //一阶滤波
@@ -89,6 +93,7 @@ void IRSensor::applyGeometry(double xc, double yc, double sinTheta, double cosTh
   xw = xc + x * cosTheta - y * sinTheta;
   yw = yc + x * sinTheta + y * cosTheta;
 }
+
 
 Vector IRSensor::getWallVector(double xc, double yc, double theta, double d)
 {
