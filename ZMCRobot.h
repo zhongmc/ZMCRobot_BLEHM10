@@ -10,6 +10,16 @@
 #define CAR_TYPE DRIVE_CAR
  // BALANCE_CAR DRIVE_CAR
 
+
+
+//states
+#define STATE_IDLE 0
+#define STATE_MENU 1
+#define STATE_DRIVE 2
+#define STATE_GOTOGOAL 3
+#define STATE_BALANCE 4
+#define STATE_CALIBRATE 5
+
 // TT 单相测速， dual A/B相测速， CHANGE A/B相，以改变中断计数，上升沿、下降沿都计数，精度加倍
 #define TT_MOTOR 0
 #define DUAL_MOTOR 1
@@ -26,6 +36,22 @@
 // R1 = 46.7 R2=4.67  Vd 0.9v  0.0107421875
 //3.3v 0.0352771  0.03544921875
 // 5V  0.0537109375
+
+  // int sType; // 1: pid for 3 wheel; 2: pid for balance;  3: pid for speed;
+  // 4：PID for balance theta； 5: settings for robot; 6: settings for balance robot;
+
+#define PKG_PID_DRV 1
+#define PKG_PID_BANLANCE 2
+#define PKG_PID_SPEED 3
+#define PKG_PID_THETA 4
+#define PKG_SET_ROBOT 5
+#define PKG_SET_BALANCE 6
+
+#define PKG_STATE_BALANCE 9
+#define PKG_STATE_DRV 8
+
+#define PKG_MSG 10
+
 
 
 #define MAX_ULTRASONIC_DIS 1
@@ -95,4 +121,6 @@ void log(const char *fmt, ...);
 
 const char *floatToStr(int idx, double val);
 const char *floatToStr(int idx, char width, unsigned char prec, double val);
+Position getRobotPosition();
+
 #endif

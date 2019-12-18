@@ -1,4 +1,3 @@
-
 #include "GoToGoal.h"
 
 GoToGoal::GoToGoal()
@@ -52,17 +51,13 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
 {
 
   double u_x, u_y, e, e_I, e_D, w, theta_g;
-
   u_x = input->x_g - robot->x;
   u_y = input->y_g - robot->y;
 
   theta_g = atan2(u_y, u_x);
-
   double d = sqrt(pow(u_x, 2) + pow(u_y, 2));
 
   output->v = input->v;
-
-  double ve, vei, ved;
 
   // state 0: normal, 1: d control 2: theta control
   if (d >= 0.3)
@@ -86,8 +81,6 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
     {
       Serial.println("CHG to D Ctrl 2 ...");
       state = 1;
-      lastVEI = 0;
-      lastVE = 0;
     }
   }
 
@@ -103,11 +96,10 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
   }
 
   if (state == 2)
-    theta_g = input->theta;
+    theta_g = input->targetAngle;
 
   e = theta_g - robot->theta;
   e = atan2(sin(e), cos(e));
-
   e_D = (e - lastError) / dt;
 
   if (state == 0 || state == 1) //1 D 控制时，保留角度控制，保证方向
@@ -129,37 +121,25 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
     w = p * e + Ki * e_I + Kd * e_D;
     lastErrorIntegration = e_I;
     lastError = e;
-    output->v = input->v / (1 + abs(robot->w) / 2);
+    output->v = input->v; // / (1 + abs(robot->w) / 2);
     output->w = w;
 
-      Serial.print(e, 3);
-      Serial.write(',');
-      Serial.print(e_I, 3);
-      Serial.write(',');
-      Serial.print(w, 3);
-      Serial.write(',');
+      // Serial.print(e, 3);
+      // Serial.write(',');
+      // Serial.print(e_I, 3);
+      // Serial.write(',');
+      // Serial.print(w, 3);
+      // Serial.write(',');
 
   }
   // else
   if (state == 1) //距离控制
   {
-    ve = d;
-    vei = lastVEI + ve * dt;
-    ved = (ve - lastVE) / dt;
-    output->v = pkp * ve + pki * vei + pkd * ved; //
-    if (output->v > input->v )
-      output->v =  input->v; ///////`
-                        //   output->w = 0;
-    // log("D: %s, %s\n",
-    //     floatToStr(0, d),
-    //     floatToStr(1, output->v));
-    lastVEI = vei;
-    lastVE = ve;
+    output->v = d*(input->v - 0.05)/0.3 + 0.05;
   }
   else if (state == 2)
   {
     double p = tkp;
-
     if (abs(e) > 1)
     {
       p = p / 2;

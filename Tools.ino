@@ -193,6 +193,31 @@ void processCommand(char *buffer, int bufferLen)
     ResetRobot();
   }
 
+  else if( ch0 == 's' && ch1 == 'i') //get settings info
+  {
+    SETTINGS sett = supervisor.getSettings( 2 );
+
+    log("ROP%d,%d,%s,%s,%s,%s,%s", sett.min_rpm, sett.max_rpm, 
+          floatToStr(0, sett.radius),
+          floatToStr(1, sett.length),
+          floatToStr(2, sett.atObstacle),
+          floatToStr(3, sett.dfw ),
+          floatToStr(4, sett.unsafe )
+          );
+
+    log("PID2%s,%s,%s\n", floatToStr(0, sett.kp),
+      floatToStr(1, sett.ki),
+      floatToStr(2, sett.kd));
+    sett = supervisor.getSettings( 3 );
+      log("PID3%s,%s,%s\n", floatToStr(0, sett.kp),
+        floatToStr(1, sett.ki),
+        floatToStr(2, sett.kd));
+    sett = supervisor.getSettings( 4 );
+        log("PID4%s,%s,%s\n", floatToStr(0, sett.kp),
+          floatToStr(1, sett.ki),
+          floatToStr(2, sett.kd));
+  }
+
   else if (ch0 == 's' && ch1 == 'd') //set drive Goal
   {
     double v, w = 0;
@@ -274,7 +299,7 @@ void processCommand(char *buffer, int bufferLen)
   //   stepResponseTest(pwm);
   // }
 
-  else if (ch0 == 'p' && ch1 == 'i') //pid
+  else if (ch0 == 'p' && ch1 == 'i') //set pid cmd: pi type kp,ki,kd;
   {
     setPID(buffer + 2);
   }
@@ -370,7 +395,7 @@ void processCommand(char *buffer, int bufferLen)
 
 void printCountInfo()
 {
-  unsigned int c1, c2;
+  unsigned long c1, c2;
 
   c1 = count1;
   c2 = count2;
@@ -380,7 +405,9 @@ void printCountInfo()
   Serial.write(',');
   Serial.println(count2);
   
-  log("CI:%d, %d.\n", c1, c2);
+  c1 = 0xffff;
+  c2 = 0x18fff;
+  log("[CI]:%il, %il.\n", c1, c2);
 
   // Serial.print(millis());
   // Serial.print(',');
@@ -543,17 +570,20 @@ const char *floatToStr(int idx, signed char width, unsigned char prec, double va
 }
 
 
-
+//cmd: pi type kp,ki,kd; type 2,3,4
 void setPID(char *buffer)
 {
   double p, i, d;
-  p = atof((buffer));
+  int type = *buffer - '0';
+
+  p = atof((buffer+1));
   char *buf = strchr(buffer, ',');
   i = atof((buf + 1));
   buf = strchr((buf + 1), ',');
   d = atof(buf + 1);
 
-  log("PID:%s, %s, %s;\n",
+  log("PID:%d, %s, %s, %s;\n",
+      type,
       floatToStr(0, p),
       floatToStr(1, i),
       floatToStr(2, d));
@@ -566,7 +596,7 @@ void setPID(char *buffer)
   // Serial.println(d);
 
   SETTINGS settings;
-  settings.sType = 1;
+  settings.sType = type;
   settings.kp = p;
   settings.ki = i;
   settings.kd = d;

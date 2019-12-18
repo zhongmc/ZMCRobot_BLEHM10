@@ -98,12 +98,12 @@ void FollowWall::execute(Robot *robot, Input *input, Output *output, double dt)
   output->v = input->v; // / (1 + abs(robot->w));
   output->w = w;
 
-  Serial.print(e, 3);
-  Serial.write(',');
-  Serial.print(e_I, 3);
-  Serial.write(',');
-  Serial.print(w, 3);
-  Serial.write(',');
+  // Serial.print(e, 3);
+  // Serial.write(',');
+  // Serial.print(e_I, 3);
+  // Serial.write(',');
+  // Serial.print(w, 3);
+  // Serial.write(',');
 
   // log("FL:%s, %s, %s\n",
   //     floatToStr(0, output->v),

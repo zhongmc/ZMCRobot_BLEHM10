@@ -27,13 +27,6 @@
 #define ULTRASONIC_ECHO 18  //2,3,18,19(serial 1), 20, 21(I2C) external interrupt
 #define ULTRASONIC_TRIG 10
 
-//states
-#define STATE_IDLE 0
-#define STATE_MENU 1
-#define STATE_DRIVE 2
-#define STATE_GOTOGOAL 3
-#define STATE_BALANCE 4
-#define STATE_CALIBRATE 5
 
 #define START_KEY 0
 #define LEFT_KEY 1
@@ -97,7 +90,7 @@ Position pos;
 double batteryVoltage;  // Measured battery level
 uint8_t batteryCounter; // Counter used to check if it should check the battery level
 
-
+uint8_t driverCounter; 
 
 
 void setup()
@@ -226,6 +219,7 @@ void setup()
 
   millisPrevKey = millis();
   millisPrev = millisPrevKey; //millis();
+  driverCounter = 0;
 }
 
 void loop()
@@ -238,77 +232,102 @@ void loop()
   //ultrasonic process
   processUltrasonic();
   unsigned long millisNow = millis();
-  if (millisNow - millisPrev >= 100)
+  if (millisNow - millisPrev >= 10)
   {
      mIMU.readIMU((millisNow - millisPrev)/1000.0);           //1/GYRO_RATE
      mIMU.calculateAttitute(  (millisNow - millisPrev)/1000.0); //1/GYRO_RATE
 
     millisPrev = millisNow;
-    if (currentState == STATE_GOTOGOAL)
-    {
-      //report states
-      supervisor.execute(readLeftEncoder(), readRightEncoder(), 0.1);
-      if( supervisor.mSimulateMode )
-      {
-        delay(3);
-        checkSerialData(); //wait for 
-      }
-      supervisor.getIRDistances(irDistance);
-      pos = supervisor.getRobotPosition();
-      sendRobotStateValue(8, pos, irDistance, batteryVoltage);
-    }
-    else if (currentState == STATE_DRIVE)
-    {
-      driveSupervisor.execute(readLeftEncoder(), readRightEncoder(), mIMU.getGyro(2), 0.1); //1/20
-      driveSupervisor.getIRDistances(irDistance);
-      pos = driveSupervisor.getRobotPosition();
-      sendRobotStateValue(8, pos, irDistance, batteryVoltage);
-    }
-    else
-    {
-      supervisor.readIRDistances(irDistance);
-      pos.theta = (PI * mIMU.getYaw()) / 180.0;
-      sendRobotStateValue(8, pos, irDistance, batteryVoltage);
 
-      log("RP%d,%d,%d,%d,%d\n",
-            (int)(1000 * pos.x),
-            (int)(1000 * pos.y),
-            (int)(1000 * pos.theta),
-            (int)(1000 * 0),
-            (int)(1000 * 0));
+    driverCounter++;
 
-    }
-    batteryCounter++;
-    if (batteryCounter >= 2)
-    { // Measure battery every 1s
-      batteryCounter = 0;
-      if (isBatteryLow())
+    if( driverCounter >= 10 )
+    {
+      driverCounter = 0;
+      if (currentState == STATE_GOTOGOAL)
       {
-        if (doCheckBattleVoltage && isBatteryLow()) //read again
+        //report states
+        supervisor.execute(readLeftEncoder(), readRightEncoder(), mIMU.getGyro(2),  0.1);
+        if( supervisor.mSimulateMode )
         {
-          if (currentState != STATE_IDLE)
+          delay(3);
+          checkSerialData(); //wait for 
+        }
+        supervisor.getIRDistances(irDistance);
+        pos = supervisor.getRobotPosition();
+        sendRobotStateValue(8, pos, irDistance, batteryVoltage);
+      }
+      else if (currentState == STATE_DRIVE)
+      {
+        driveSupervisor.execute(readLeftEncoder(), readRightEncoder(), mIMU.getGyro(2), 0.1); //1/20
+        driveSupervisor.getIRDistances(irDistance);
+        pos = driveSupervisor.getRobotPosition();
+        sendRobotStateValue(8, pos, irDistance, batteryVoltage);
+      }
+      else
+      {
+        supervisor.readIRDistances(irDistance);
+        // if( supervisor.isUseIMU() )
+        {
+          pos.theta = (PI * mIMU.getYaw()) / 180.0;
+          // supervisor.setRobotPosition(pos.x, pos.y, pos.theta);
+          // driveSupervisor.setRobotPosition(pos.x, pos.y, pos.theta);
+        }
+        sendRobotStateValue(8, pos, irDistance, batteryVoltage);
+
+        log("RP%d,%d,%d,%d,%d\n",
+              (int)(1000 * pos.x),
+              (int)(1000 * pos.y),
+              (int)(1000 * pos.theta),
+              (int)(1000 * 0),
+              (int)(1000 * 0));
+
+      }
+    
+      batteryCounter++;
+      if (batteryCounter >= 2)
+      { // Measure battery every 1s
+        batteryCounter = 0;
+        if (isBatteryLow())
+        {
+          if (doCheckBattleVoltage && isBatteryLow()) //read again
           {
-            Serial.println("Bat L...");
-            stopAndReset();
-            currentState = STATE_IDLE;
+            if (currentState != STATE_IDLE)
+            {
+              Serial.println("Bat L...");
+              stopAndReset();
+              currentState = STATE_IDLE;
 
-              int melody[] = {
-                NOTE_C4, NOTE_G3,NOTE_C4, NOTE_G3
-            };
-            int noteDurations[] = {
-            4, 8, 8, 4
-            };
+                int melody[] = {
+                  NOTE_C4, NOTE_G3,NOTE_C4, NOTE_G3
+              };
+              int noteDurations[] = {
+              4, 8, 8, 4
+              };
 
-            playMelody(melody, noteDurations, 4);
+              playMelody(melody, noteDurations, 4);
 
+            }
+            blinkLed.slowBlink();
           }
-          blinkLed.slowBlink();
         }
       }
     }
-
     loopExecuteTime = millis() - millisNow;
   }
+}
+
+Position getRobotPosition()
+{
+    if (currentState == STATE_DRIVE)
+    {
+      return driveSupervisor.getRobotPosition();
+    }
+    else
+    {
+      return supervisor.getRobotPosition();
+    }
+    
 }
 
 void setGoal(double x, double y, int theta, double v)

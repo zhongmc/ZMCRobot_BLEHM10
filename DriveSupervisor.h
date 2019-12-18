@@ -9,6 +9,8 @@
 
 #include "VelocityController.h"
 
+#include "DifferencialController.h"
+
 #define S_STOP 0
 #define S_GTG 1
 #define S_AVO 2
@@ -34,9 +36,9 @@ public:
     Serial.print(m_output.w);
 
     Serial.print(",vel-l:");
-    Serial.print(mVel.vel_l);
+    Serial.print(robot.vel_l);
     Serial.print(",vel-r:");
-    Serial.println(mVel.vel_r);
+    Serial.println(robot.vel_r);
     // long c1, c2;
     // c1 = (long)m_left_ticks;
     // c2 = (long)m_right_ticks;
@@ -66,7 +68,23 @@ public:
 
   void updateSettings(SETTINGS settings);
 
+  unsigned int getLeftTicks(){return m_left_ticks;};
+  unsigned int getRightTicks(){ return m_right_ticks;};
+
   void init();
+
+  void setRobotDimension(float r, float l)
+  {
+    robot.rl = r;
+    robot.rr = r;
+    robot.wheel_base_length = l;
+  };
+
+  void setUseIMU(bool beUseIMU, double _alpha)
+  {
+    mUseIMU = beUseIMU;
+    alpha = _alpha;
+  };
 
   bool mSimulateMode;
   bool mIgnoreObstacle;
@@ -77,7 +95,7 @@ private:
   void check_states();
 
   double v, w;
-  Vel mVel;
+ // Vel mVel;
   bool unsafe;
   bool danger;
 
@@ -85,7 +103,10 @@ private:
   double m_right_ticks, m_left_ticks;
 
 private:
+  
   VelocityController m_Controller;
+  
+  DifferencialController m_DifController;
   //   Robot robot;
   RearDriveRobot robot;
 

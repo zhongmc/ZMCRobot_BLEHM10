@@ -6,16 +6,16 @@
 
 typedef struct
 {
-  double v, theta; //velocity and target direction
+  double v, w; //velocity and w
   double x_g, y_g; //target x,y
   double targetAngle;
-  double turning;
 } Input;
 
 typedef struct
 {
   double v;
   double w;
+  double vel_l, vel_r;
 } Output;
 
 typedef struct
@@ -31,8 +31,24 @@ typedef struct
 
 typedef struct
 {
+  //drive car:  5: normal settings,
+  //            1: PID for direction
+  //            2: PID for differencial
+  //            3: PID for position
+  //            4: PID for turning 
+
+  //balance car: 6: normal settings
+  //              2: PID for balance
+  //              3: PID for speed
+  //              4: PID for turning
+
   int sType; // 1: pid for 3 wheel; 2: pid for balance;  3: pid for speed; 4：PID for balance theta； 5: settings for robot; 6: settings for balance robot;
-  double kp, ki, kd;
+  
+  double kp, ki, kd; //pid for direction 
+  double pkp, pki, pkd; // pid for position / balance Speed
+  double tkp, tki, tkd; // pid for turning angle / balance turning
+  double dkp, dki, dkd; //pid for differencial ctrl / balance balance
+
   double atObstacle, unsafe;
   double dfw;
   double velocity;
@@ -109,7 +125,13 @@ public:
 
   void readIRSensors(double dt);
 
-  double wheel_radius;
+
+  double normalizeVel(double refVel, double inVel );
+  
+ // double wheel_radius;
+
+//wheel radius  
+  double rl, rr;
   double wheel_base_length;
 
 
@@ -137,7 +159,7 @@ public:
   int ticks_per_rev_l, ticks_per_rev_r;
 
 protected:
-  void init(double R, double L, double ticksr_l, double ticksr_r, double minRpm, double maxRpm, SENSOR_TYPE sensorType);
+  void init(double RL, double RR, double L, double ticksr_l, double ticksr_r, double minRpm, double maxRpm, SENSOR_TYPE sensorType);
 
   SETTINGS mPIDSettings;
 

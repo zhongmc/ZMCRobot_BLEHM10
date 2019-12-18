@@ -19,6 +19,10 @@ Supervisor::Supervisor()
   m_FollowWall.d_fw = 0.25;
   m_FollowWall.dir = 0;
 
+     mUseIMU = false;
+   alpha = 0.7;  //计算角度时编码器占比
+
+
   //  robot.setVel2PwmParam(0, 6.4141, 14.924); // vel to pwm parameters
 
   // robot.setVel2PwmParam(0,9.59,18.73);
@@ -41,6 +45,8 @@ Supervisor::Supervisor()
   mSimulateMode = false;
   mIgnoreObstacle = false;
 
+  m_left_ticks = 0;
+  m_right_ticks = 0;
   danger = false;
   execTime = 0;
 }
@@ -69,7 +75,6 @@ void Supervisor::updateSettings(SETTINGS settings)
     m_GoToGoal.updateSettings(settings);
     m_AvoidObstacle.updateSettings(settings);
     m_FollowWall.updateSettings(settings);
-
     // m_dkp = settings.kp;
     // m_dki = settings.ki;
     // m_dkd = settings.kd;
@@ -80,6 +85,7 @@ void Supervisor::updateSettings(SETTINGS settings)
     m_pki = settings.ki;
     m_pkd = settings.kd;
     m_GoToGoal.setPID(3, m_pkp, m_pki, m_pkd); // updateSettings(settings);
+    m_DiffCtrl.updateSettings(settings);    
   }
   else if (settings.sType == 4)
   {
@@ -107,7 +113,7 @@ SETTINGS Supervisor::getSettings(byte settingsType)
     settings.max_rpm = robot.max_rpm;
     settings.min_rpm = robot.min_rpm;
 
-    settings.radius = robot.wheel_radius;
+    settings.radius = robot.rl; //wheel_radius;
     settings.length = robot.wheel_base_length;
     SETTINGS pidSettings = robot.getPIDParams();
     settings.kp = pidSettings.kp;
@@ -145,6 +151,8 @@ void Supervisor::init()
 
   m_GoToGoal.setPID(3, m_pkp, m_pki, m_pkd);
   m_GoToGoal.setPID(4, m_tkp, m_tki, m_tkd);
+
+  // m_DiffCtrl.updateSettings(settings);// updateSettings(settings);
 }
 
 void Supervisor::setGoal(double x, double y, int theta, double v)
@@ -154,18 +162,17 @@ void Supervisor::setGoal(double x, double y, int theta, double v)
   m_input.x_g = x;
   m_input.y_g = y;
 
-  if (theta <= 180)
-    m_input.theta = (theta * PI) / 180.0;
-  else
-  {
-    theta = theta - 360;
-    m_input.theta = (theta * PI) / 180.0;
-  }
-
-  m_input.theta = theta;
-  m_input.v = v;
-
-  //  robot.theta = 2*PI*theta/360;
+  // if (theta <= 180)
+  //   m_input.targetAngle = (theta * PI) / 180.0;
+  // else
+  // {
+  //   theta = theta - 360;
+  //   m_input.targetAngle = (theta * PI) / 180.0;
+  // }
+  
+  m_input.targetAngle = theta;
+   m_input.v = v;
+//  robot.theta = 2*PI*theta/360;
 }
 
 void Supervisor::resetRobot()
@@ -178,6 +185,7 @@ void Supervisor::resetRobot()
   m_GoToGoal.reset();
   m_AvoidObstacle.reset();
   m_FollowWall.reset();
+  m_DiffCtrl.reset();
 
   m_FollowWall.dir = 0; //left
 
@@ -202,6 +210,7 @@ void Supervisor::reset(long leftTicks, long rightTicks)
   m_GoToGoal.reset();
   m_AvoidObstacle.reset();
   m_FollowWall.reset();
+  m_DiffCtrl.reset();
 
   m_FollowWall.dir = 0; //left
 
@@ -251,7 +260,7 @@ void Supervisor::setIRFilter(bool open, float filter)
   robot.setIRFilter(open, filter);
 }
 
-void Supervisor::execute(long left_ticks, long right_ticks, double dt)
+void Supervisor::execute(long left_ticks, long right_ticks, double gyro, double dt)
 {
 
   long startTime = micros();
@@ -259,7 +268,12 @@ void Supervisor::execute(long left_ticks, long right_ticks, double dt)
   if (mSimulateMode)
     robot.updateState((long)m_left_ticks, (long)m_right_ticks, dt);
   else
-    robot.updateState(left_ticks, right_ticks, dt);
+  {
+    if (mUseIMU)
+      robot.updateState(left_ticks, right_ticks, gyro, alpha, dt);
+    else
+      robot.updateState(left_ticks, right_ticks, dt);
+  }
 
   if (m_state == S_STOP && at_goal)
     return;
@@ -274,7 +288,7 @@ void Supervisor::execute(long left_ticks, long right_ticks, double dt)
     StopMotor();
 
     
-  log("RP%d,%d,%d,%d,%d\n",
+  log("\nRP%d,%d,%d,%d,%d\n",
       (int)(1000 * robot.x),
       (int)(1000 * robot.y),
       (int)(1000 * robot.theta),
@@ -301,37 +315,28 @@ void Supervisor::execute(long left_ticks, long right_ticks, double dt)
   m_output.w = 0;
 
   m_currentController->execute(&robot, &m_input, &m_output, dt);
-  // double obsDis;
+
+  Input in;
+  in.v = m_output.v;
+  in.w = m_output.w;
+
+  m_DiffCtrl.execute(&robot, &in, &m_output, dt);
   
-/*    robot 中 ensure 中处理速度与转弯的关系
- if (m_output.w  != 0 &&  m_output.v != 0) //拐弯减速
-  {
-    double m_v = m_output.v;
-    double sw = abs(m_output.w);
-    m_v = -0.027 * sw + m_input.v;
-      // m_v = -0.067 * sw + 0.1;
-    if (m_v < 0.05)
-      m_v = 0.05;
-    if (m_output.v < 0)
-      m_v = -m_v;
-    m_output.v = m_v;
-  }
-*/
-  
-  // obsDis = robot.getObstacleDistance();
-  PWM_OUT pwm = robot.getPWMOut(m_output.v, m_output.w);
+  int pwm_l = robot.vel_l_to_pwm(m_output.vel_l );
+  int pwm_r = robot.vel_r_to_pwm(m_output.vel_r );
+
+
+  // PWM_OUT pwm = robot.getPWMOut(m_output.v, m_output.w);
 
   if (mSimulateMode)
   {
-    m_left_ticks = m_left_ticks + robot.pwm_to_ticks_l(pwm.pwm_l, dt);
-    m_right_ticks = m_right_ticks + robot.pwm_to_ticks_r(pwm.pwm_r, dt);
-    //send robot position
-
+    m_left_ticks = m_left_ticks + robot.pwm_to_ticks_l(pwm_l, dt);
+    m_right_ticks = m_right_ticks + robot.pwm_to_ticks_r(pwm_r, dt);
   }
   else
   {
-    MoveLeftMotor(pwm.pwm_l);
-    MoveRightMotor(pwm.pwm_r);
+    MoveLeftMotor(pwm_l);
+    MoveRightMotor(pwm_r);
   }
 
  log("RP%d,%d,%d,%d,%d\n",
@@ -517,12 +522,13 @@ void Supervisor::check_states()
   at_goal = false;
   if (d < d_stop)
   {
-    if (abs(robot.theta - m_input.theta) < 0.05) //0.05
+    if (abs(robot.theta - m_input.targetAngle ) < 0.05) //0.05
     {
       at_goal = true;
     }
     else
       at_goal = false;
+    // at_goal = true;
   }
 
   at_obstacle = false;

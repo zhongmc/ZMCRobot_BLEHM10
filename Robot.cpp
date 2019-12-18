@@ -6,7 +6,7 @@ extern double ultrasonicDistance;
 Robot::Robot()
 {
   //R, L, ticksr_l, ticksr_r, minRpm, maxRpm, GP2Y0A41);
-  init(0.065 / 2, 0.125, 20, 20, 40, 200, GP2Y0A41);
+  // init(0.0325, 0.0325, 0.125, 20, 20, 40, 200, GP2Y0A41);
 }
 
 // Robot::Robot(double R, double L, double ticksr_l, double ticksr_r, double minRpm, double maxRpm)
@@ -14,7 +14,7 @@ Robot::Robot()
 //   init(R, L, ticksr_l, ticksr_r, minRpm, maxRpm, GP2Y0A41);
 // }
 
-void Robot::init(double R, double L, double ticksr_l, double ticksr_r, double minRpm, double maxRpm, SENSOR_TYPE sensorType)
+void Robot::init(double _rl, double _rr,  double L, double ticksr_l, double ticksr_r, double minRpm, double maxRpm, SENSOR_TYPE sensorType)
 {
   x = 0;
   y = 0;
@@ -24,12 +24,15 @@ void Robot::init(double R, double L, double ticksr_l, double ticksr_r, double mi
   prev_left_ticks = 0;
   prev_right_ticks = 0;
 
-  wheel_radius = R;           //0.065 / 2;
+  rl = _rl;
+  rr = _rr;
+
+//  wheel_radius = R;           //0.065 / 2;
   wheel_base_length = L;      // 0.127;
   ticks_per_rev_l = ticksr_l; //20;
   ticks_per_rev_r = ticksr_r; //20;
-  m_per_tick_l = 2 * PI * wheel_radius / ticks_per_rev_l;
-  m_per_tick_r = 2 * PI * wheel_radius / ticks_per_rev_r;
+  m_per_tick_l = 2 * PI * rl / ticks_per_rev_l;
+  m_per_tick_r = 2 * PI * rr / ticks_per_rev_r;
 
   max_rpm = maxRpm; //160; //267
   max_vel = max_rpm * 2 * PI / 60;
@@ -37,14 +40,8 @@ void Robot::init(double R, double L, double ticksr_l, double ticksr_r, double mi
   min_rpm = minRpm; // 70; //113
   min_vel = min_rpm * 2 * PI / 60;
 
-  // max_v = max_vel * wheel_radius;
-  // min_v = min_vel * wheel_radius;
-  // max_w = (wheel_radius / wheel_base_length) * (max_vel); // - min_vel);
-  // min_w = (wheel_radius / wheel_base_length) * (min_vel);
-
   pwm_diff = 0;
   // angleOff = 0;
-
   // irSensors[0] = new IRSensor(-0.045, 0.05, PI / 2, A1, sensorType);
   // irSensors[1] = new IRSensor(0.160, 0.045, PI / 6, A2, sensorType);
   // irSensors[2] = new IRSensor(0.162, 0.0, 0, A3, sensorType);
@@ -56,6 +53,12 @@ void Robot::init(double R, double L, double ticksr_l, double ticksr_r, double mi
   // irSensors[2] = new IRSensor(0.085, 0., 0, A3, sensorType);
   // irSensors[3] = new IRSensor(0.075, -0.06, -PI / 4, A4, sensorType);
   // irSensors[4] = new IRSensor(-0.1, -0.055, -PI / 2, A5, sensorType);
+
+    prev_left_ticks = 0;
+    prev_right_ticks = 0;
+    vel_l = 0;
+    vel_r = 0;
+
 }
 
 void Robot::setIRSensorType(SENSOR_TYPE sensorType)
@@ -74,7 +77,8 @@ void Robot::updatePID(SETTINGS pids)
 void Robot::updateSettings(SETTINGS settings)
 {
 
-  wheel_radius = settings.radius;
+  // wheel_radius = settings.radius;
+  rl = rr =  settings.radius;
   wheel_base_length = settings.length;
 
   max_rpm = settings.max_rpm; //267
@@ -84,13 +88,6 @@ void Robot::updateSettings(SETTINGS settings)
   min_vel = min_rpm * 2 * PI / 60;
 
   max_w = settings.max_w;
-
-  // max_v = max_vel * wheel_radius;
-  // min_v = min_vel * wheel_radius;
-  // max_w = (wheel_radius / wheel_base_length) * (max_vel); // - min_vel);
-  // min_w = (wheel_radius / wheel_base_length) * (min_vel);
-  // max_w = (wheel_radius / wheel_base_length) * (max_vel - min_vel);
-  // min_w = (wheel_radius / wheel_base_length) * (2 * min_vel);
 
   pwm_diff = settings.pwm_diff;
   // angleOff = settings.angleOff;
@@ -115,15 +112,16 @@ void Robot::updateState(long left_ticks, long right_ticks, double gyro, double a
   {
     w = 0;
     velocity = 0;
+    vel_l = 0;
+    vel_r = 0;
     readIRSensors( dt );
     return; //no change
   }
 
   double d_right, d_left, d_center;
 
-  vel_l = ((double)abs(left_ticks - prev_left_ticks) / dt) / (double)ticks_per_rev_l;
-  vel_r = ((double)abs(right_ticks - prev_right_ticks) / dt) / (double)ticks_per_rev_r;
-
+  vel_l = ((double)(left_ticks - prev_left_ticks) / dt) / (double)ticks_per_rev_l;
+  vel_r = ((double)(right_ticks - prev_right_ticks) / dt) / (double)ticks_per_rev_r;
   vel_l = 2 * PI * vel_l;
   vel_r = 2 * PI * vel_r;
 
@@ -138,7 +136,7 @@ void Robot::updateState(long left_ticks, long right_ticks, double gyro, double a
 
   double phi = (d_right - d_left) / wheel_base_length;
 
-  double gyro_ = gyro * PI / 360.0;
+  double gyro_ = gyro * PI / 180.0;  //gyro 度/秒
   double dgyt = gyro_ * dt;
 
   phi = alpha * phi + (1 - alpha) * dgyt;
@@ -154,6 +152,20 @@ void Robot::updateState(long left_ticks, long right_ticks, double gyro, double a
 }
 
 
+double Robot::normalizeVel(double refVel, double inVel )
+{
+    if( refVel * inVel < 0 )
+      return 0;
+    
+    if( inVel > max_vel )
+      return max_vel;
+    if( inVel < -max_vel )
+      return -max_vel;
+    
+    return inVel;
+
+}
+
 void Robot::updateState(long left_ticks, long right_ticks, double dt)
 {
   //  long left_ticks, right_ticks;
@@ -161,20 +173,24 @@ void Robot::updateState(long left_ticks, long right_ticks, double dt)
   {
     w = 0;
     velocity = 0;
+    vel_l = 0;
+    vel_r = 0;
     readIRSensors(dt);
     return; //no change
   }
 
   double d_right, d_left, d_center;
 
-  vel_l = ((double)abs(left_ticks - prev_left_ticks) / dt) / (double)ticks_per_rev_l;
-  vel_r = ((double)abs(right_ticks - prev_right_ticks) / dt) / (double)ticks_per_rev_r;
-
+  vel_l = ((double)(left_ticks - prev_left_ticks) / dt) / (double)ticks_per_rev_l;
+  vel_r = ((double)(right_ticks - prev_right_ticks) / dt) / (double)ticks_per_rev_r;
   vel_l = 2 * PI * vel_l;
   vel_r = 2 * PI * vel_r;
 
+ 
   d_left = (left_ticks - prev_left_ticks) * m_per_tick_l;
   d_right = (right_ticks - prev_right_ticks) * m_per_tick_r;
+
+
 
   prev_left_ticks = left_ticks;
   prev_right_ticks = right_ticks;
@@ -260,9 +276,10 @@ void Robot::getRobotInfo()
       floatToStr(4, max_rpm),
       floatToStr(5, min_rpm));
 
-  log("robot(R,L,tks):%s, %s, %d, %d\n",
-      floatToStr(0, 100 * wheel_radius),
-      floatToStr(1, 100 * wheel_base_length),
+  log("robot(R,L,tks):%s, %s, %s, %d, %d\n",
+      floatToStr(0, 1000 * rl),
+      floatToStr(1, 1000 * rr),
+      floatToStr(2, 1000 * wheel_base_length),
       ticks_per_rev_l,
       ticks_per_rev_r);
 
@@ -307,20 +324,9 @@ double Robot::getObstacleDistance()
 Vel Robot::uni_to_diff(double v, double w)
 {
   Vel vel;
-  vel.vel_r = (2 * v + w * wheel_base_length) / (2 * wheel_radius);
-  vel.vel_l = (2 * v - w * wheel_base_length) / (2 * wheel_radius);
+  vel.vel_r = (2 * v + w * wheel_base_length) / (2 * rl);
+  vel.vel_l = (2 * v - w * wheel_base_length) / (2 * rr);
   return vel;
-
-  //double vv = -0.0537*w + 0.8054;
-  //if( vv < 0.1)
-  //  vv = 0.1;
-  // if( vv > 0.8 )
-  //  vv = 0.8;
-  //
-  //  vel.vel_r = (2 * vv + w * wheel_base_length) / (2 * wheel_radius);
-  //  vel.vel_l = (2 * vv - w * wheel_base_length) / (2 * wheel_radius);
-  //
-  //  return vel;
 }
 
 Output Robot::diff_to_uni(double vel_l, double vel_r)
@@ -333,7 +339,7 @@ Output Robot::diff_to_uni(double vel_l, double vel_r)
     return out;
   }
   else
-    out.v = wheel_radius / 2 * (vel_l + vel_r);
+    out.v = rl / 2 * (vel_l + vel_r);
 
   if (vel_r - vel_l == 0)
   {
@@ -341,7 +347,7 @@ Output Robot::diff_to_uni(double vel_l, double vel_r)
     out.w = PI / 2;
   }
   else
-    out.w = wheel_radius / wheel_base_length * (vel_r - vel_l);
+    out.w = rl / wheel_base_length * (vel_r - vel_l);
 
   return out;
 }

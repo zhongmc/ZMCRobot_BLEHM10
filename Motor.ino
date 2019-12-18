@@ -54,8 +54,8 @@ void initMotor()
   pinMode(RIGHT_WHEEL_PWM, OUTPUT);
 
   //moto dir
-  pinMode(LEFT_WHEEL_B, INPUT);
-  pinMode(RIGHT_WHEEL_B, INPUT);
+  pinMode(LEFT_WHEEL_B, INPUT_PULLUP);
+  pinMode(RIGHT_WHEEL_B, INPUT_PULLUP);
 
   digitalWrite(LEFT_WHEEL_DIR, HIGH);
   digitalWrite(RIGHT_WHEEL_DIR, HIGH);
@@ -124,29 +124,21 @@ void MoveRightMotor(int PWM)
 //speed counter for left
 void Code1()
 {
-#if MOTOR == DUAL_MOTOR
   int wheelDir = digitalRead(LEFT_WHEEL_B);
   if (wheelDir == LOW)
     count1++;
   else
     count1--;
-#else
-  count1++;
-#endif
 }
 
 //speed counter for right
 void Code2()
 {
-#if MOTOR == DUAL_MOTOR
   int wheelDir = digitalRead(RIGHT_WHEEL_B);
   if (wheelDir == HIGH) //HIGH)
     count2++;
   else
     count2--;
-#else
-  count2++;
-#endif
 }
 
 long readLeftEncoder()

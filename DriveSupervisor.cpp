@@ -9,7 +9,7 @@ DriveSupervisor::DriveSupervisor()
   m_input.x_g = 0;
   m_input.y_g = 0;
   m_input.v = 0.3;
-  m_input.theta = 0;
+  m_input.w = 0;
 
   //  robot.setVel2PwmParam(0, 6.4141, 14.924); // vel to pwm parameters
   //   robot.setVel2PwmParam(0,9.59,18.73);
@@ -27,6 +27,8 @@ DriveSupervisor::DriveSupervisor()
   danger = false;
   mUseIMU = false;
   alpha = 0.5;
+  m_left_ticks = 0;
+  m_right_ticks = 0;
 }
 
 void DriveSupervisor::setIRFilter(bool open, float val)
@@ -52,6 +54,11 @@ void DriveSupervisor::updateSettings(SETTINGS settings)
   {
     robot.updatePID(settings);
     m_Controller.updateSettings(settings);
+    // m_DifController.updateSettings(settings);
+  }
+  else if( settings.sType == 3 )
+  {
+    m_DifController.updateSettings( settings );
   }
 }
 
@@ -59,13 +66,14 @@ void DriveSupervisor::init()
 {
   SETTINGS settings = robot.getPIDParams();
   m_Controller.updateSettings(settings);
+  m_DifController.updateSettings(settings);
 }
 
 // drive the robot velocity and turning w
 void DriveSupervisor::setGoal(double v, double w)
 {
   m_input.v = v;
-  m_input.theta = w;
+  m_input.w = w;
   m_Controller.setGoal(v, w);
 }
 
@@ -73,9 +81,10 @@ void DriveSupervisor::resetRobot()
 {
   robot.x = 0;
   robot.y = 0;
-  robot.theta = 0;
+  robot.w = 0;
   m_Controller.setGoal(m_input.v, 0, 0);
   m_Controller.reset(&robot);
+  m_DifController.reset();
 }
 
 void DriveSupervisor::reset(long leftTicks, long rightTicks)
@@ -87,10 +96,13 @@ void DriveSupervisor::reset(long leftTicks, long rightTicks)
     m_left_ticks = 0;
     m_right_ticks = 0;
     robot.reset(m_left_ticks, m_right_ticks);
+    m_Controller.reset(&robot);
+    m_DifController.reset();
   }
   else
     robot.reset(leftTicks, rightTicks);
-  m_Controller.reset(&robot);
+    m_Controller.reset(&robot);
+    m_DifController.reset();
 }
 
 void DriveSupervisor::execute(long left_ticks, long right_ticks, double gyro, double dt)
@@ -119,75 +131,51 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double gyro, do
     return;
   }
 
-#ifdef _DEBUG_
-  Serial.print(robot.x);
-  Serial.print(",");
-  Serial.print(robot.y);
-  Serial.print(",");
-  Serial.print(robot.theta);
-  Serial.print(",");
-#endif
-
   m_Controller.execute(&robot, &m_input, &m_output, dt);
 
-  // double obsDis = robot.getObstacleDistance();
+  Input in;
+  in.v = m_output.v;
+  in.w = m_output.w;
 
-  // float v = m_output.v;
-  // if (abs(m_output.w) < 5)
-  //   v = v / (1 + W_SPEED_DOWN_SCALE * abs(m_output.w) / 5); //slow down according to turning w
-  // else
-  //   v = v / (1 + W_SPEED_DOWN_SCALE * abs(m_output.w)); //slow down according to turning w
+  m_DifController.execute(&robot, &in, &m_output, dt);
+  
+  int pwm_l = robot.vel_l_to_pwm(m_output.vel_l );
+  int pwm_r = robot.vel_r_to_pwm(m_output.vel_r );
 
-  // if (obsDis < 0.10) //danger only allow turning
-  // {
-  //   v = 0;
-  // }
-  // else if (obsDis < MAX_IRSENSOR_DIS)
-  // {
-  //   float v1 = m_output.v * log10(DIS_SPEED_DOWN_SCALE * obsDis + 1); //obsDis*10  slow down according to obstacle
-  //   v = min(v, v1);
-  // }
 
-  // float w = m_output.w; // max(min(m_output.w, robot.max_w), -robot.max_w);
 
-  // Vel vel;
 
-  v = m_output.v;
-  w = m_output.w;
+  // v = m_output.v;
+  // w = m_output.w;
+  // PWM_OUT pwm = robot.getPWMOut(v, w);
 
-  //mVel = robot.ensure_w(v, w);
 
-  PWM_OUT pwm = robot.getPWMOut(v, w);
+// #ifdef _DEBUG_
+//   Serial.print(v);
+//   Serial.print(",");
+//   Serial.print(w);
 
-  // pwm.pwm_l = (int)robot.vel_l_to_pwm(mVel.vel_l);
-  // pwm.pwm_r = (int)robot.vel_r_to_pwm(mVel.vel_r);
+//   Serial.print(",");
+//   Serial.print(vel.vel_l);
+//   Serial.print(",");
+//   Serial.print(vel.vel_r);
 
-#ifdef _DEBUG_
-  Serial.print(v);
-  Serial.print(",");
-  Serial.print(w);
+//   Serial.print(",");
+//   Serial.print(pwm.pwm_l);
+//   Serial.print(",");
+//   Serial.println(pwm.pwm_r);
 
-  Serial.print(",");
-  Serial.print(vel.vel_l);
-  Serial.print(",");
-  Serial.print(vel.vel_r);
-
-  Serial.print(",");
-  Serial.print(pwm.pwm_l);
-  Serial.print(",");
-  Serial.println(pwm.pwm_r);
-
-#endif
+// #endif
 
   if (mSimulateMode)
   {
-    m_left_ticks = m_left_ticks + robot.pwm_to_ticks_l(pwm.pwm_l, dt);
-    m_right_ticks = m_right_ticks + robot.pwm_to_ticks_r(pwm.pwm_r, dt);
+    m_left_ticks = m_left_ticks + robot.pwm_to_ticks_l( pwm_l, dt);
+    m_right_ticks = m_right_ticks + robot.pwm_to_ticks_r(pwm_r, dt);
   }
   else
   {
-    MoveLeftMotor(pwm.pwm_l);
-    MoveRightMotor(pwm.pwm_r);
+    MoveLeftMotor(pwm_l);
+    MoveRightMotor(pwm_r);
   }
 
  log("RP%d,%d,%d,%d,%d\n",

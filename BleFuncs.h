@@ -15,6 +15,9 @@ void processSetingsRequire();
 void SendSettings(SETTINGS settings);
 void sendStatePkgToBle(byte *buf, int len );
 void sendSettingsPkgToBle(byte *settingsArray, int len);
+void logToBle(const char *format, ...);
+void motorSpeedBle(int pwml, int pwmr);
 
+void sendMessage(char *str);
 void initBluetooth();
 #endif

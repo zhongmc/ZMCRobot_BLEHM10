@@ -10,7 +10,9 @@
 
 extern Supervisor supervisor;
 extern DriveSupervisor driveSupervisor;
+extern byte currentState;
 
+extern volatile long count1, count2;
 
 extern bool doCheckBattleVoltage; // = true;
 extern bool openDebug;            // = false;
@@ -112,25 +114,114 @@ void processBleCommandPackage(byte *data)
     // Serial.print(",");
     // Serial.println(theta);
   }
+  else if (cmd[0] == 'M' && cmd[1] == 'M') // move motor mmpwml,pwmr
+  {
+    int pwml = atoi(data + 2);
+    char *buf = strchr((data + 2), ',');
 
-  // else if (cmd[0] == 'M' && cmd[1] == 'G') //go to goal
-  // {
-  //   float d = atof((char *)(data + 2));
-  //   Serial.print("m gtg:");
-  //   Serial.println(d);
+    int pwmr = pwml;
+    if (buf != NULL)
+      pwmr = atoi(buf + 1);
 
-  //   count1 = 0;
-  //   count2 = 0;
-  //   supervisor.reset(0, 0);
+    motorSpeedBle(pwml, pwmr);
+    MoveMotor(0);
+  }
 
-  //   setGoal(d, 0, 0, 0.12);
-  //   startGoToGoal();
-  // }
+  else if (cmd[0] == 'M' && cmd[1] == 'G') //go to goal
+  {
+    int d = atoi((char *)(data + 2));
+    Serial.print("m gtg:");
+    Serial.println(d);
 
-  // else if (cmd[0] == 'S' && cmd[1] == 'R') //step response
-  // {
-  //   startStepResponse(90);
-  // }
+    logToBle("MG:%d..", d);
+    count1 = 0;
+    count2 = 0;
+    ResetRobot();
+
+  MoveMotor( 80 );
+  while (true)
+  {
+    if (count1 > d  || count2 > d )
+    // if (count1 > 1700 || count2 > 1700)
+    {
+      StopMotor();
+      break;
+    }
+    delay(50);
+ //   log("TR:%d, %d, %d;\n", pwm, count1, count2);
+  }
+
+  delay(1000);
+
+  int c1 = count1;
+  int c2 = count2;
+  log("ci:%d,%d;\n", c1, c2);
+  logToBle("ci:%d,%d;\n", c1, c2);
+
+
+
+  }
+
+  else if (cmd[0]  == 'T' && cmd[1] == 'L') //turn around left/ right(-pwm) test
+  {
+    int pwm = atoi(data + 2);
+    int stopCount = 2000;
+    char *buf = strchr(data, ',');
+    if (buf != NULL)
+      stopCount = atof(buf + 1);
+
+    logToBle("tl:%d,%d..", pwm, stopCount);
+
+    turnAround(pwm, stopCount);
+  }
+  else if( cmd[0] == 'C' && cmd[1] == 'I')
+  {
+    unsigned int c1,c2;
+    if( driveSupervisor.mSimulateMode == true )
+    {
+          c1 = driveSupervisor.getLeftTicks();
+          c2 = driveSupervisor.getRightTicks();
+
+        if( c1 == 0 && c2 == 0)
+        {
+          c1 = supervisor.getLeftTicks();
+          c2 = supervisor.getRightTicks();
+
+        }
+        
+    }
+    else
+    {
+      c1 = count1;
+      c2 = count2;
+    }
+    
+    logToBle("ci:%d,%d", c1, c2);
+  }
+  else if( cmd[0] == 'R' && cmd[1] == 'I') //robot info
+  {
+    Position pos = getRobotPosition();
+    logToBle("%d,%d,%d;", (int)(100*pos.x), (int)(100 *pos.y), (int)(1000*pos.theta) );
+  }
+
+  else if (cmd[0] == 'S' && cmd[1] == 'R') //set robot param sr1r,l; sr2minrpm,maxrpm;
+  {
+    int type = *(data+2) - '0';
+    if( type == 1 )
+    {
+      float r = atof((char *)(data+3));
+      float l = 0.162;
+      char *buf = strchr(data, ',');
+      if (buf != NULL)
+        l = atof(buf + 1);
+      supervisor.setRobotDimension( r, l );
+      driveSupervisor.setRobotDimension(r, l);
+    }
+    else if( type == 2)
+    {
+
+    }
+  }
 
   
   else if (cmd[0] == 'I' && cmd[1] == 'M') //use IMU or not IM0/1,0.5;
@@ -140,9 +231,10 @@ void processBleCommandPackage(byte *data)
     if (val == true)
       alpha = atof((char *)(data + 4));
     log("use IMU:%d,%s\n", val, floatToStr(0, alpha));
-    driveSupervisor.mUseIMU = val;
-    driveSupervisor.alpha = alpha;
-    //driveSupervisor.setUseIMU(val, alpha);
+    // driveSupervisor.mUseIMU = val;
+    // driveSupervisor.alpha = alpha;
+    driveSupervisor.setUseIMU(val, alpha);
+    supervisor.setUseIMU(val, alpha);
   }
 
   else if (cmd[0] == 'I' && cmd[1] == 'F') // set ir filter IF0/1,0.6;
@@ -163,7 +255,7 @@ void processBleCommandPackage(byte *data)
     driveSupervisor.setHaveIRSensor(idx, val);
   }
 
-  else if (cmd[0] == 'P' && cmd[1] == 'I') //pid
+  else if (cmd[0] == 'P' && cmd[1] == 'I') //pid pi type kp,ki,kd ; type 2:dir 3:diff  4:turning angle
   {
     setPID((char *)(data + 2));
   }
@@ -356,6 +448,54 @@ int byteToInt(byte *arrayBuf)
     val = -val;
 
   return val;
+}
+
+
+void motorSpeedBle(int pwml, int pwmr)
+{
+  unsigned long c1, c2, lt;
+  MoveLeftMotor(pwml);
+  MoveRightMotor(pwmr);
+ // Serial.print(pwm);
+  // Serial.print(',');
+  delay(500);
+  c1 = count1;
+  c2 = count2;
+  lt = millis();
+  delay(1000);
+  lt = millis() - lt;
+  c1 = count1 - c1;
+  c2 = count2 - c2;
+  logToBle("%d,%dl,%dl\n", pwml, c1, c2);
+}
+
+
+
+void logToBle(const char *format, ...)
+{
+  char tmp[20];
+  memset(tmp, 0, 20);
+  
+  tmp[0] = PKG_MSG;
+  va_list vArgList;
+  va_start(vArgList, format);
+  // vsniprintf(tmp, 20, format, vArgList);
+  vsnprintf(tmp+1, 18, format, vArgList);
+  va_end(vArgList);
+  int len = strlen(tmp+1);
+  sendStatePkgToBle( tmp, len+1 ); 
+}
+
+
+void sendMessage(char *str)
+{
+    byte buf[19];
+    buf[0] = PKG_MSG;
+    int len = strlen(str);
+    if( len > 18 )
+      len = 18;
+    memcpy(buf+1, str, len);
+   sendStatePkgToBle( buf, len+1 ); 
 }
 
 //type, x, y, theta, d0,d1,d2,d3,d4,voltage

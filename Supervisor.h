@@ -12,6 +12,8 @@
 #include "FollowWall.h"
 #include "SlidingMode.h"
 
+#include "DifferencialController.h"
+
 #define S_STOP 0
 #define S_GTG 1
 #define S_AVO 2
@@ -21,7 +23,7 @@ class Supervisor
 {
 public:
   Supervisor();
-  void execute(long left_ticks, long right_ticks, double dt);
+  void execute(long left_ticks, long right_ticks, double gyro, double dt);
 
   // void executeFollowWall(double dt);
   void executeAvoidAndGotoGoal(double dt);
@@ -35,6 +37,26 @@ public:
   void setIRFilter(bool open, float filter);
 
   void setSimulateMode(bool val);
+
+  void setUseIMU(bool beUseIMU, double _alpha)
+  {
+    mUseIMU = beUseIMU;
+    alpha = _alpha;
+  };
+
+  bool isUseIMU()
+  {
+    return mUseIMU;
+  }
+
+  void setRobotDimension(float r, float l)
+  {
+    robot.rl = r;
+    robot.rr = r;
+    robot.wheel_base_length = l;
+  };
+
+
 
   void getRobotInfo()
   {
@@ -62,9 +84,9 @@ public:
     Serial.print(m_output.w);
 
     Serial.print(", vel-l:");
-    Serial.print(mVel.vel_l);
+    Serial.print(robot.vel_l);
     Serial.print(", vel-r:");
-    Serial.println(mVel.vel_r);
+    Serial.println(robot.vel_r);
     // long c1, c2;
     // c1 = (long)m_left_ticks;
     // c2 = (long)m_right_ticks;
@@ -86,6 +108,8 @@ public:
     m_GoToGoal.PrintInfo();
     Serial.print("FLW CTRL ");
     m_FollowWall.PrintInfo();
+    Serial.print("Diff Ctrl:");
+    m_DiffCtrl.PrintInfo();
   }
 
   //the target to go!
@@ -98,13 +122,14 @@ public:
   void setObstacleDistance(double dis[5]);
 
   Position getRobotPosition();
-
   void setRobotPosition(double x, double y, double theta);
-
   void init();
 
   void updateSettings(SETTINGS settings);
   SETTINGS getSettings(byte settingsType);
+
+  unsigned int getLeftTicks(){return m_left_ticks;};
+  unsigned int getRightTicks(){ return m_right_ticks;};
 
   bool mSimulateMode;
   bool mIgnoreObstacle;
@@ -122,6 +147,10 @@ private:
   bool unsafe;
   bool danger;
 
+    bool mUseIMU;
+  double alpha;
+
+
   int m_state;
   double m_right_ticks, m_left_ticks;
   double m_distanceToGoal;
@@ -131,6 +160,8 @@ private:
   AvoidObstacle m_AvoidObstacle;
   FollowWall m_FollowWall;
   SlidingMode m_SlidingMode;
+
+  DifferencialController m_DiffCtrl;
 
   // Robot robot;
 
@@ -150,10 +181,10 @@ private:
   Output m_output;
 
   // double m_dkp, m_dki, m_dkd; // direction
-  double m_pkp, m_pki, m_pkd; // position
-  double m_tkp, m_tki, m_tkd; // theta
+  double m_pkp, m_pki, m_pkd; // differencial
+  double m_tkp, m_tki, m_tkd; // turning angle
 
-  Vel mVel;
+//  Vel mVel;
 };
 
 #endif /* _SUPERVISOR_H_ */
