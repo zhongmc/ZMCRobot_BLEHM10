@@ -25,27 +25,6 @@ void GoToGoal::reset()
   lastTEI = 0;
 }
 
-void GoToGoal::setPID(int type, double kp, double ki, double kd)
-{
-  if (type == 0 || type == 1 || type == 2)
-  {
-    Kp = kp;
-    Ki = ki;
-    Kd = kd;
-  }
-  else if (type == 3)
-  {
-    pkp = kp;
-    pki = ki;
-    pkd = kd;
-  }
-  else if (type == 4)
-  {
-    tkp = kp;
-    tki = ki;
-    tkd = kd;
-  }
-}
 
 void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
 {

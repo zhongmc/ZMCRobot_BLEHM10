@@ -44,10 +44,10 @@ typedef struct
 
   int sType; // 1: pid for 3 wheel; 2: pid for balance;  3: pid for speed; 4：PID for balance theta； 5: settings for robot; 6: settings for balance robot;
   
-  double kp, ki, kd; //pid for direction 
-  double pkp, pki, pkd; // pid for position / balance Speed
-  double tkp, tki, tkd; // pid for turning angle / balance turning
-  double dkp, dki, dkd; //pid for differencial ctrl / balance balance
+  double kp, ki, kd; //pid for direction                              1
+  double pkp, pki, pkd; // pid for position / balance Speed           2 
+  double tkp, tki, tkd; // pid for turning angle / balance turning    3 
+  double dkp, dki, dkd; //pid for differencial ctrl / balance balance 4
 
   double atObstacle, unsafe;
   double dfw;
@@ -57,6 +57,8 @@ typedef struct
   double radius, length;
   double max_w;
   
+  bool useIMU, irFilter;
+  double imuAlpha, irAlpha;
 //平衡车参数
   int pwm_diff;
   int max_pwm, pwm_zero;
@@ -90,19 +92,30 @@ public:
       haveIrSensor[idx] = value;
       irSensors[idx]->setDistance(irSensors[idx]->getMaxDistance());
     }
-  }
+  };
 
   void setIRFilter(bool open, float filter)
   {
     for (int i = 0; i < 5; i++)
       irSensors[i]->setIRFilter(open, filter);
-  }
+    
+    mSettings.irFilter = open;
+    mSettings.irAlpha = filter;
+
+  };
+
+  void setUseIMU(bool open, float alpha )
+  {
+      mSettings.useIMU = open;
+      mSettings.imuAlpha = alpha;
+
+  };
 
   byte haveIrSensor[5];
 
-  SETTINGS getPIDParams()
+  SETTINGS getSettings()
   {
-    return mPIDSettings;
+    return mSettings;
   }
 
   //     double vel_l, vel_r;
@@ -119,7 +132,7 @@ public:
   void setIRSensorType(SENSOR_TYPE sensorType);
 
   void updateSettings(SETTINGS settings);
-  void updatePID(SETTINGS pids);
+  void setPIDParams( int type, double kp, double ki, double kd );
 
   void getRobotInfo();
 
@@ -128,11 +141,8 @@ public:
 
   double normalizeVel(double refVel, double inVel );
   
- // double wheel_radius;
-
-//wheel radius  
-  double rl, rr;
-  double wheel_base_length;
+ double wheel_radius;
+ double wheel_base_length;
 
 
   int pwm_diff;
@@ -159,9 +169,9 @@ public:
   int ticks_per_rev_l, ticks_per_rev_r;
 
 protected:
-  void init(double RL, double RR, double L, double ticksr_l, double ticksr_r, double minRpm, double maxRpm, SENSOR_TYPE sensorType);
+  void init(double R, double L, double ticksr_l, double ticksr_r, double minRpm, double maxRpm, SENSOR_TYPE sensorType);
 
-  SETTINGS mPIDSettings;
+  SETTINGS mSettings;
 
   IRSensor *irSensors[5];
 

@@ -66,24 +66,20 @@ public:
   Position getRobotPosition();
   void setRobotPosition(double x, double y, double theta);
 
+  SETTINGS getSettings();
   void updateSettings(SETTINGS settings);
+  void setPIDParams(int type, double kp, double ki, double kd );
 
   unsigned int getLeftTicks(){return m_left_ticks;};
   unsigned int getRightTicks(){ return m_right_ticks;};
 
   void init();
 
-  void setRobotDimension(float r, float l)
-  {
-    robot.rl = r;
-    robot.rr = r;
-    robot.wheel_base_length = l;
-  };
-
   void setUseIMU(bool beUseIMU, double _alpha)
   {
     mUseIMU = beUseIMU;
     alpha = _alpha;
+    robot.setUseIMU(beUseIMU, _alpha);    
   };
 
   bool mSimulateMode;
@@ -105,7 +101,6 @@ private:
 private:
   
   VelocityController m_Controller;
-  
   DifferencialController m_DifController;
   //   Robot robot;
   RearDriveRobot robot;

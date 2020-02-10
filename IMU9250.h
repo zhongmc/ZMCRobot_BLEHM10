@@ -2,8 +2,11 @@
 #ifndef _IMU9250_H_
 #define _IMU9250_H_
 
+#define IMU_INT_PIN 19
+
 #include <Arduino.h>
 #include "MPU9250.h"
+
 
 
 #define GYRO_RATE 100
@@ -25,9 +28,18 @@ public:
 
   //  度/秒 角速度 idx 0，1，2 x y z
   double getGyro(int idx);
+  double getQuaternion(int idx);
   //加速度 g/秒？ idx 0, 1, 2 x y z
   double getAcceleration(int idx);
   void debugOut();
+
+  //校准 IMU
+  void calibrateIMU();
+
+  int16_t *getRawData()
+  {
+    return mpu.getRawData();
+  }
 
 private:
   bool mIMUReady;
@@ -38,27 +50,19 @@ private:
 // These can be measured once and entered here or can be calculated each time the device is powered on
 
 //company
-    float gyroBias[3] = {-1.52, -0.27, -0.08}; // bias corrections
-    float accelBias[3] = {0.03894, -0.00537, 0.011678}; // bias corrections
-    float magBias[3] = {-81.18, -164.69, 330.51};
-    float magScale[3]  = {1.02, 0.86, 1.17}; // Bias corrections for gyro and accelerometer
+    // float accelBias[3] = {0.0036, 0.00507, 0.01746}; // bias corrections for accelerometer
+    // float gyroBias[3] = {-1.63, -0.23, -0.11}; // bias corrections for gyro
+    // float magBias[3] = {-106.43, -18.10, 220.92}; // Bias corrections for mag
+    // float magScale[3]  = {0.90, 0.85, 1.4}; //
 
-//  accel bias [g]: 
-//  39.73, -3.23, 14.89
-//  gyro bias [deg/s]: 
-//  -1.56, -0.22, -0.14
-//  mag bias [mG]: 
-//  -81.18, -164.69, 330.51
-//  mag scale []: 
-//  1.02, 0.86, 1.17
 
 
 
 //home
-// float   gyroBias[3] = {1.39, 1.17, 0.70};
-// float accelBias[3] = {0.00745, 0.03503, 0.02692};
-// float   magBias[3] = {-52.48, 619.14, 1015.88};
-// float  magScale[3]  = {0.80, 1.15, 1.13}; // Bias corrections for gyro and accelerometer
+float accelBias[3] = {0.00745, 0.03503, 0.02692};
+float   gyroBias[3] = {1.39, 1.17, 0.70};
+float   magBias[3] = {-52.48, 619.14, 1015.88};
+float  magScale[3]  = {0.80, 1.15, 1.13}; // Bias corrections for gyro and accelerometer
 
 float magnetic_declination =  -6.59; // -6.59 BeiJing // -7.51;  Japan, 24th June
 

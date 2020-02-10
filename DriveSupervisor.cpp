@@ -41,33 +41,38 @@ void DriveSupervisor::setHaveIRSensor(int idx, byte val)
   robot.setHaveIrSensor(idx, val);
 }
 
+
+SETTINGS DriveSupervisor::getSettings()
+{
+  return robot.getSettings();
+}
+
+
 void DriveSupervisor::updateSettings(SETTINGS settings)
 {
   if (settings.sType == 0 || settings.sType == 5)
   {
     d_unsafe = settings.unsafe;
-    // m_input.v = settings.velocity;
-    robot.updateSettings(settings);
   }
+  robot.updateSettings(settings);
 
-  if (settings.sType == 0 || settings.sType == 1 || settings.sType == 2)
-  {
-    robot.updatePID(settings);
-    m_Controller.updateSettings(settings);
-    // m_DifController.updateSettings(settings);
-  }
-  else if( settings.sType == 3 )
-  {
-    m_DifController.updateSettings( settings );
-  }
+  init();
+
 }
 
 void DriveSupervisor::init()
 {
-  SETTINGS settings = robot.getPIDParams();
-  m_Controller.updateSettings(settings);
-  m_DifController.updateSettings(settings);
+  SETTINGS settings = robot.getSettings();
+  m_Controller.setSettings(settings);
+  m_DifController.setSettings(settings);
 }
+
+void DriveSupervisor::setPIDParams(int type, double kp, double ki, double kd )
+{
+    robot.setPIDParams(type, kp, ki, kd);
+    init(); //update controller's PID
+}
+
 
 // drive the robot velocity and turning w
 void DriveSupervisor::setGoal(double v, double w)
@@ -178,12 +183,12 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double gyro, do
     MoveRightMotor(pwm_r);
   }
 
- log("RP%d,%d,%d,%d,%d\n",
-      (int)(1000 * robot.x),
-      (int)(1000 * robot.y),
-      (int)(1000 * robot.theta),
-      (int)(1000 * robot.w),
-      (int)(1000 * robot.velocity));
+//  log("RP%d,%d,%d,%d,%d\n",
+//       (int)(1000 * robot.x),
+//       (int)(1000 * robot.y),
+//       (int)(1000 * robot.theta),
+//       (int)(1000 * robot.w),
+//       (int)(1000 * robot.velocity));
 
   //   uint32_t nowMicros = micros();
 
@@ -227,6 +232,7 @@ void DriveSupervisor::setRobotPosition(double x, double y, double theta)
   robot.x = x;
   robot.y = y;
   robot.theta = theta;
+
 }
 
 Position DriveSupervisor::getRobotPosition()
@@ -235,6 +241,8 @@ Position DriveSupervisor::getRobotPosition()
   pos.x = robot.x;
   pos.y = robot.y;
   pos.theta = robot.theta;
+  pos.v = robot.velocity;
+  pos.w = robot.w;
   return pos;
 }
 

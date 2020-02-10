@@ -24,7 +24,7 @@ public:
   double getRoll() { return filter.getRoll(); };
   double getPitch() { return filter.getPitch(); };
   double getYaw() { return filter.getYaw(); };
-
+  double getQuaternion(int idx);
   //  度/秒 角速度 idx 0，1，2 x y z
   double getGyro(int idx);
   //加速度 g/秒？ idx 0, 1, 2 x y z
@@ -36,6 +36,8 @@ public:
   // void  calculateAngle(double dt);
   // double getKalmanAngle() { return m_kalman_angle; };
  void debugOut();
+
+  void calibrateIMU();
 
 private:
   //传感器角度（atan（ax/ay）, kalman, madgwick filter, Kalman1

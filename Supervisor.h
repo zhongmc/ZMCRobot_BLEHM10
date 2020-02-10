@@ -42,19 +42,13 @@ public:
   {
     mUseIMU = beUseIMU;
     alpha = _alpha;
+    robot.setUseIMU(beUseIMU, _alpha);
   };
 
   bool isUseIMU()
   {
     return mUseIMU;
   }
-
-  void setRobotDimension(float r, float l)
-  {
-    robot.rl = r;
-    robot.rr = r;
-    robot.wheel_base_length = l;
-  };
 
 
 
@@ -126,7 +120,8 @@ public:
   void init();
 
   void updateSettings(SETTINGS settings);
-  SETTINGS getSettings(byte settingsType);
+  void setPIDParams(int type, double kp, double ki, double kd );
+  SETTINGS getSettings();
 
   unsigned int getLeftTicks(){return m_left_ticks;};
   unsigned int getRightTicks(){ return m_right_ticks;};
@@ -147,7 +142,7 @@ private:
   bool unsafe;
   bool danger;
 
-    bool mUseIMU;
+  bool mUseIMU;
   double alpha;
 
 
@@ -168,22 +163,17 @@ private:
   RearDriveRobot robot;
 
   Controller *m_currentController;
-  double d_fw; //distance to follow wall
 
-  double d_stop;
+  double d_fw; //distance to follow wall
   double d_at_obs;
   double d_unsafe;
+  double d_stop;
+  
   double d_prog;
-
   long execTime;
 
   Input m_input;
   Output m_output;
-
-  // double m_dkp, m_dki, m_dkd; // direction
-  double m_pkp, m_pki, m_pkd; // differencial
-  double m_tkp, m_tki, m_tkd; // turning angle
-
 //  Vel mVel;
 };
 

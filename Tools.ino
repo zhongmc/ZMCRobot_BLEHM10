@@ -11,7 +11,7 @@ extern DriveSupervisor driveSupervisor;
 extern long trigTime, echoTime;
 extern double ultrasonicDistance;
 extern unsigned long loopExecuteTime;
-static char comData[32];
+static char comData[52];
 int comDataCount = 0;
 
 //extern Supervisor supervisor;
@@ -19,8 +19,14 @@ extern double gp2y0a41[3][4];
 extern volatile long count1, count2;
 
 extern bool openDebug;
+extern bool mROSConnected;
 
 extern double batteryVoltage;
+
+// char *scanfDouble(char *buf, double&value, char split);
+// char *scanfInt(char *buf, int&value, char split);
+//字符串按分割符分割
+int split(char *src, char delim, char **res, int resLen );
 
 
 #if MPU == 9250
@@ -44,7 +50,7 @@ void checkSerialData()
         processCommand(comData, comDataCount);
         comDataCount = 0;
       }
-      if (comDataCount > 30) //some error
+      if (comDataCount > 50) //some error
       {
         Serial.print("Na. err");
         // comData[comDataCount] = 0;
@@ -192,31 +198,95 @@ void processCommand(char *buffer, int bufferLen)
   {
     ResetRobot();
   }
+  else if( ch0 == 'c' && ch1 == 'r') //ros connected
+  {
+    Serial.println("\nROS Connected OK!");
+    mROSConnected = true;
+  }
 
   else if( ch0 == 's' && ch1 == 'i') //get settings info
   {
-    SETTINGS sett = supervisor.getSettings( 2 );
+    SETTINGS sett = supervisor.getSettings( );
 
-    log("ROP%d,%d,%s,%s,%s,%s,%s", sett.min_rpm, sett.max_rpm, 
+    log("ROP%d,%d,%s,%s,%s,%s,%s,%s\n", sett.min_rpm, sett.max_rpm, 
           floatToStr(0, sett.radius),
           floatToStr(1, sett.length),
           floatToStr(2, sett.atObstacle),
           floatToStr(3, sett.dfw ),
-          floatToStr(4, sett.unsafe )
+          floatToStr(4, sett.unsafe ),
+          floatToStr(5, sett.max_w )
           );
 
-    log("PID2%s,%s,%s\n", floatToStr(0, sett.kp),
+    delay(10);
+    log("PID1,%s,%s,%s\n", floatToStr(0, sett.kp),
       floatToStr(1, sett.ki),
       floatToStr(2, sett.kd));
-    sett = supervisor.getSettings( 3 );
-      log("PID3%s,%s,%s\n", floatToStr(0, sett.kp),
-        floatToStr(1, sett.ki),
-        floatToStr(2, sett.kd));
-    sett = supervisor.getSettings( 4 );
-        log("PID4%s,%s,%s\n", floatToStr(0, sett.kp),
-          floatToStr(1, sett.ki),
-          floatToStr(2, sett.kd));
+
+    log("PID2,%s,%s,%s\n", floatToStr(0, sett.pkp),
+      floatToStr(1, sett.pki),
+      floatToStr(2, sett.pkd));
+
+    delay(10);
+
+    log("PID3,%s,%s,%s\n", floatToStr(0, sett.tkp),
+      floatToStr(1, sett.tki),
+      floatToStr(2, sett.tkd));
+
+    log("PID4,%s,%s,%s\r\n", floatToStr(0, sett.dkp),
+      floatToStr(1, sett.dki),
+      floatToStr(2, sett.dkd));
+
   }
+  else if (ch0 == 'p' && ch1 == 'i') //set pid cmd: pi type kp,ki,kd;
+  {
+    setPID(buffer + 2);
+  }
+  else if (ch0 == 's' && ch1 == 'r') // set robot params sr min_rpm,max_rpm,R,L,atObs,dfw,usafe,max_w;
+  {
+    // int min_rpm, max_rpm;
+    // float r, l, atobs, dfw, usafe, max_w;
+
+    SETTINGS sett;
+
+    char *ptrs[8];
+    int count = split(buffer+2, ',', ptrs, 8);
+    if( count < 8 )
+    {
+      Serial.println("Data format error!");
+      return;
+    }
+
+    sett.min_rpm = atoi( ptrs[0]);
+    sett.max_rpm  = atoi(ptrs[1]);
+    sett.radius = atof( ptrs[2] );
+    sett.length = atof( ptrs[3] );
+    sett.atObstacle = atof( ptrs[4] );
+    sett.dfw = atof( ptrs[5] );
+    sett.unsafe = atof( ptrs[6] );
+    sett.max_w = atof( ptrs[7] ); 
+   
+    // sscanf(buffer+2, "%i,%i,%f,%f,%f,%f,%f,%f", &sett.min_rpm, &sett.max_rpm, &sett.radius, 
+    //           &sett.length, &sett.atObstacle, &sett.dfw, 
+    //           &sett.unsafe, &sett.max_w );
+    Serial.print("Set Robot:");
+    Serial.print(sett.min_rpm);
+    Serial.print(',');
+    Serial.print(sett.max_rpm);
+    Serial.print(',');
+    Serial.print(sett.radius, 4);
+    Serial.print(',');
+    Serial.print(sett.length, 4);
+    Serial.print(',');
+    Serial.print(sett.atObstacle, 4);
+    Serial.print(',');
+    Serial.print(sett.dfw, 4);
+    Serial.print(',');
+    Serial.print(sett.unsafe, 4);
+    Serial.print(',');
+    Serial.println(sett.max_w, 4);
+
+  }
+
 
   else if (ch0 == 's' && ch1 == 'd') //set drive Goal
   {
@@ -266,6 +336,12 @@ void processCommand(char *buffer, int bufferLen)
     mIMU.debugOut();
 
   }
+  else if( ch0 == 'c' && ch1 == 'm')
+  {
+    Serial.println("Calibrate the IMU....");
+    mIMU.calibrateIMU();
+
+  }
   else if (ch0 == 'g' && ch1 == 'o') //start go to goal
   {
     startGoToGoal();
@@ -293,22 +369,6 @@ void processCommand(char *buffer, int bufferLen)
     //to do
   }
 
-  // else if (ch0 == 's' && ch1 == 'r') // step response
-  // {
-  //   int pwm = atoi(buffer + 2);
-  //   stepResponseTest(pwm);
-  // }
-
-  else if (ch0 == 'p' && ch1 == 'i') //set pid cmd: pi type kp,ki,kd;
-  {
-    setPID(buffer + 2);
-  }
-
-  // else if (ch0 == 't' && ch1 == 'l') //turn around left/ right(-pwm) test
-  // {
-  //   int pwm = atoi(buffer + 2);
-  //   turnAround(pwm);
-  // }
   else if (ch0 == 'i' && ch1 == 'o') //ignore atObstacle
   {
     int val = atoi(buffer + 2);
@@ -582,26 +642,49 @@ void setPID(char *buffer)
   buf = strchr((buf + 1), ',');
   d = atof(buf + 1);
 
-  log("PID:%d, %s, %s, %s;\n",
+  log("set pid:%d, %s, %s, %s;\n",
       type,
       floatToStr(0, p),
       floatToStr(1, i),
       floatToStr(2, d));
 
-  // Serial.print("PID:");
-  // Serial.print(p);
-  // Serial.print(",");
-  // Serial.print(i);
-  // Serial.print(",");
-  // Serial.println(d);
+  supervisor.setPIDParams(type, p, i, d);
+  driveSupervisor.setPIDParams(type, p, i, d);
+}
 
-  SETTINGS settings;
-  settings.sType = type;
-  settings.kp = p;
-  settings.ki = i;
-  settings.kd = d;
-  supervisor.updateSettings(settings);
-  driveSupervisor.updateSettings(settings);
+
+
+// char *scanfDouble(char *buf, double&value, char split)
+// {
+//   value = atof(buf);
+//   return strchr(buf, split);
+// }
+
+// char *scanfInt(char *buf, int&value, char split)
+// {
+//   value = atoi(buf);
+//   return strchr(buf, split);
+// }
+
+//字符串按分割符分割
+int split(char *src, char delim, char **res, int resLen )
+{
+    int idx = 0;
+    char *p = src;
+    res[idx++] = src;
+
+    while(true )
+    {
+        p = strchr(p, delim);
+        if( p == NULL )
+          break;
+        p++;
+        res[idx++] = p;
+        if( idx >= resLen )
+          break;
+    }
+
+    return idx;
 }
 
 // void stepResponseTest(int pwm)

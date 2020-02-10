@@ -122,6 +122,19 @@ double IMU::getGyro(int idx)
   return 0; ///error
 }
 
+
+void IMU::calibrateIMU()
+{
+  
+}
+
+double IMU::getQuaternion(int idx)
+{
+  //tobo done 
+    // filter.;
+    return 0.0;
+}
+
 double IMU::getAcceleration(int idx)
 {
   switch (idx)

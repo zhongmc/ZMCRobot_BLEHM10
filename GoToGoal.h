@@ -12,13 +12,24 @@ public:
   void reset();
   void execute(Robot *robot, Input *input, Output *output, double dt);
 
-  void setPID(int type, double kp, double ki, double kd);
-  //    private:
-  //        double fuckEk_l;
-  //        double E_k;
-  //        double Kp, Ki, Kd;
+  virtual void setSettings(SETTINGS settings )
+  {
+      Kp = settings.kp;
+      Ki = settings.ki;
+      Kd = settings.kd;
 
-  void PrintInfo()
+      pkp = settings.pkp;
+      pki = settings.pki;
+      pkd = settings.pkd;
+
+      tkp = settings.tkp;
+      tki = settings.tki;
+      tki = settings.tki;
+      lastError = 0;
+      lastErrorIntegration = 0;
+  };
+
+   void PrintInfo()
   {
 
     if( state == 0 )

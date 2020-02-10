@@ -68,6 +68,7 @@ typedef struct
 typedef struct
 {
   double x, y, theta;
+  double v, w;
 } Position;
 
 typedef struct
@@ -122,5 +123,6 @@ void log(const char *fmt, ...);
 const char *floatToStr(int idx, double val);
 const char *floatToStr(int idx, char width, unsigned char prec, double val);
 Position getRobotPosition();
+double getYaw();
 
 #endif

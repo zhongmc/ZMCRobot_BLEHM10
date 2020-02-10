@@ -20,7 +20,7 @@ byte bleBufLen;
 
 //defined in BalancePID and SpeedPID
 // extern double sKp, sKi, sKd, bKp, bKi, bKd;
-#define bluetooth Serial2
+#define bluetooth Serial2  //17 Rx 16 Tx
 
 // SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
 

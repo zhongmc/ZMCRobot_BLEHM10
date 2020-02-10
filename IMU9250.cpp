@@ -4,6 +4,7 @@
 
 #define SPEED_LOOP_COUNT 10
 
+void imuIntterrupt();
 
 IMU9250::IMU9250()
 {
@@ -28,7 +29,13 @@ void IMU9250::init(int gyroRate)
         mpu.setMagScale(i, magScale[i]);
      }
      mpu.setMagneticDeclination(magnetic_declination);
-    mIMUReady = true;
+      mIMUReady = true;
+
+  pinMode(IMU_INT_PIN, INPUT_PULLUP);
+  // imu intterupt
+  attachInterrupt(digitalPinToInterrupt(IMU_INT_PIN), imuIntterrupt, RISING);
+
+
    }
    else
    {
@@ -38,6 +45,17 @@ void IMU9250::init(int gyroRate)
 
 }
 
+
+void IMU9250::calibrateIMU()
+{
+  if( !mIMUReady )
+    return;
+
+  mpu.calibrateAccelGyro();
+  mpu.calibrateMag();
+  mpu.printCalibration();
+
+}
 
 void IMU9250::readIMU(double dt)
 {
@@ -51,6 +69,13 @@ double IMU9250::getGyro(int idx)
 {
 
   return mpu.getGyro(idx);
+}
+
+//四元数
+double IMU9250::getQuaternion(int idx)
+{
+  return mpu.getQuaternion(idx);
+
 }
 
 double IMU9250::getAcceleration(int idx)

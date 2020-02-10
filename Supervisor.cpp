@@ -12,15 +12,23 @@ Supervisor::Supervisor()
   d_at_obs = 0.3;
   d_unsafe = 0.1;
   d_prog = 100;
-
   m_input.x_g = 1;
   m_input.y_g = 0;
   m_input.v = 0.15;
   m_FollowWall.d_fw = 0.25;
   m_FollowWall.dir = 0;
 
-     mUseIMU = false;
-   alpha = 0.7;  //计算角度时编码器占比
+
+  SETTINGS settings = robot.getSettings();
+
+  d_at_obs = settings.atObstacle;
+  d_unsafe = settings.unsafe;
+  d_fw = settings.dfw;
+  m_FollowWall.d_fw = settings.dfw;
+  m_SlidingMode.d_fw = settings.dfw;
+
+  mUseIMU = false;
+  alpha = 0.7;  //计算角度时编码器占比
 
 
   //  robot.setVel2PwmParam(0, 6.4141, 14.924); // vel to pwm parameters
@@ -33,15 +41,7 @@ Supervisor::Supervisor()
   // robot.setHaveIrSensor(3, true);
   // robot.setHaveIrSensor(4, true);
 
-  // m_dkp = 10, m_dki = 0.20, m_dkd = 0.1; // direction
-  //平衡之家
-  // m_pkp = 0.5, m_pki = 0.1, m_pkd = 0.0; // position
-  // m_tkp = 20, m_tki = 0.7, m_tkd = 0.0;  // theta
-
-  //1：90
-  m_pkp = 1.50, m_pki = 0.01, m_pkd = 0.0; // position
-  m_tkp = 4, m_tki = 0.1, m_tkd = 0.0; // theta
-
+ 
   mSimulateMode = false;
   mIgnoreObstacle = false;
 
@@ -58,102 +58,40 @@ void Supervisor::setHaveIRSensor(int idx, byte val)
 
 void Supervisor::updateSettings(SETTINGS settings)
 {
-  if (settings.sType == 0 || settings.sType == 5)
+  if( settings.sType == 0 || settings.sType == 5 )
   {
     d_at_obs = settings.atObstacle;
     d_unsafe = settings.unsafe;
     d_fw = settings.dfw;
-    // m_input.v = settings.velocity;
-    robot.updateSettings(settings);
     m_FollowWall.d_fw = settings.dfw;
     m_SlidingMode.d_fw = settings.dfw;
   }
-
-  if (settings.sType == 0 || settings.sType == 1 || settings.sType == 2)
-  {
-    robot.updatePID(settings);
-    m_GoToGoal.updateSettings(settings);
-    m_AvoidObstacle.updateSettings(settings);
-    m_FollowWall.updateSettings(settings);
-    // m_dkp = settings.kp;
-    // m_dki = settings.ki;
-    // m_dkd = settings.kd;
-  }
-  else if (settings.sType == 3)
-  {
-    m_pkp = settings.kp;
-    m_pki = settings.ki;
-    m_pkd = settings.kd;
-    m_GoToGoal.setPID(3, m_pkp, m_pki, m_pkd); // updateSettings(settings);
-    m_DiffCtrl.updateSettings(settings);    
-  }
-  else if (settings.sType == 4)
-  {
-    m_tkp = settings.kp;
-    m_tki = settings.ki;
-    m_tkd = settings.kd;
-    m_GoToGoal.setPID(4, m_tkp, m_tki, m_tkd);
-  }
-}
-
-SETTINGS Supervisor::getSettings(byte settingsType)
-{
-  SETTINGS settings;
-
-  if (settingsType == 0 || settingsType == 5 || settingsType == 1 || settingsType == 2)
-  {
-    settings.sType = settingsType;
-
-    settings.atObstacle = d_at_obs;
-    settings.unsafe = d_unsafe;
-    settings.dfw = d_fw;
-    settings.max_w = robot.max_w;
-    
-    settings.velocity = m_input.v;
-    settings.max_rpm = robot.max_rpm;
-    settings.min_rpm = robot.min_rpm;
-
-    settings.radius = robot.rl; //wheel_radius;
-    settings.length = robot.wheel_base_length;
-    SETTINGS pidSettings = robot.getPIDParams();
-    settings.kp = pidSettings.kp;
-    settings.ki = pidSettings.ki;
-    settings.kd = pidSettings.kd;
-  }
-
-  else if (settingsType == 3) //position control pid
-  {
-    settings.sType = 3;
-    settings.kp = m_pkp;
-    settings.ki = m_pki;
-    settings.kd = m_pkd;
-  }
-  else if (settingsType == 4) //theta control pid
-  {
-    settings.sType = 4;
-    settings.kp = m_tkp;
-    settings.ki = m_tki;
-    settings.kd = m_tkd;
-  }
-
-  // m_GoToGoal.getSettings(&settings);
-
-  return settings;
+  robot.updateSettings(settings);
+  init();  ///
 }
 
 void Supervisor::init()
 {
-  SETTINGS settings = robot.getPIDParams();
-  settings.sType = 1;
-  m_GoToGoal.updateSettings(settings);
-  m_AvoidObstacle.updateSettings(settings);
-  m_FollowWall.updateSettings(settings);
-
-  m_GoToGoal.setPID(3, m_pkp, m_pki, m_pkd);
-  m_GoToGoal.setPID(4, m_tkp, m_tki, m_tkd);
-
+  SETTINGS settings = robot.getSettings();
+  m_GoToGoal.setSettings( settings );
+  m_AvoidObstacle.setSettings( settings );
+  m_FollowWall.setSettings( settings );
+  m_DiffCtrl.setSettings( settings );
   // m_DiffCtrl.updateSettings(settings);// updateSettings(settings);
 }
+
+void Supervisor::setPIDParams(int type, double kp, double ki, double kd )
+{
+    robot.setPIDParams(type, kp, ki, kd);
+    init(); //update controller's PID
+}
+
+
+SETTINGS Supervisor::getSettings()
+{
+  return robot.getSettings();
+}
+
 
 void Supervisor::setGoal(double x, double y, int theta, double v)
 {
@@ -339,12 +277,12 @@ void Supervisor::execute(long left_ticks, long right_ticks, double gyro, double 
     MoveRightMotor(pwm_r);
   }
 
- log("RP%d,%d,%d,%d,%d\n",
-      (int)(1000 * robot.x),
-      (int)(1000 * robot.y),
-      (int)(1000 * robot.theta),
-      (int)(1000 * robot.w),
-      (int)(1000 * robot.velocity));
+//  log("RP%d,%d,%d,%d,%d\n",
+//       (int)(1000 * robot.x),
+//       (int)(1000 * robot.y),
+//       (int)(1000 * robot.theta),
+//       (int)(1000 * robot.w),
+//       (int)(1000 * robot.velocity));
 
   long etime = micros() - startTime;
   if (execTime < etime)
@@ -574,6 +512,8 @@ Position Supervisor::getRobotPosition()
   pos.x = robot.x;
   pos.y = robot.y;
   pos.theta = robot.theta;
+  pos.v = robot.velocity;
+  pos.w = robot.w;
   return pos;
 }
 

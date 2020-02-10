@@ -13,6 +13,17 @@ public:
   void reset();
   void execute(Robot *robot, Input *input, Output *output, double dt);
 
+  virtual void setSettings(SETTINGS settings )
+  {
+      Kp = settings.dkp;
+      Ki = settings.dki;
+      Kd = settings.dkd;
+
+      lastError = 0;
+      lastErrorIntegration = 0;
+
+  };
+
   // void reset(Robot *robot);
   // void setGoal(double v, double w);
   // void setGoal(double v, double theta, double curTheta);

@@ -16,8 +16,12 @@ extern volatile long count1, count2;
 
 extern bool doCheckBattleVoltage; // = true;
 extern bool openDebug;            // = false;
+extern bool mUseIMU;
 extern byte settingsReqQueue[8];
 extern short queueLen; // = 0;
+extern double batteryVoltage;
+
+extern byte currentState;
 
 void processBleCommandPackage(byte *data) 
 {
@@ -201,10 +205,21 @@ void processBleCommandPackage(byte *data)
   else if( cmd[0] == 'R' && cmd[1] == 'I') //robot info
   {
     Position pos = getRobotPosition();
-    logToBle("%d,%d,%d;", (int)(100*pos.x), (int)(100 *pos.y), (int)(1000*pos.theta) );
+    logToBle("x:%d,y:%d,Q:%d;\n", (int)(100*pos.x), (int)(100 *pos.y), (int)(100*pos.theta) );
+    double yaw = getYaw();
+    int cs = currentState;
+    logToBle("s:%d,Y:%d,B:%d;\n", cs, (int)(10*yaw), (int)(10*batteryVoltage));
+    SETTINGS settings = supervisor.getSettings();
+
+    int i1,i2;
+    i1 = settings.useIMU;
+    i2 = settings.irFilter;
+    logToBle("im:%d,%d,IF:%d%,%d;\n", i1, (int)(10*settings.imuAlpha), i2, (int)(10*settings.irAlpha));
+
+
   }
 
-  else if (cmd[0] == 'S' && cmd[1] == 'R') //set robot param sr1r,l; sr2minrpm,maxrpm;
+  else if (cmd[0] == 'S' && cmd[1] == 'R') //set robot param sr1r,l; sr2minrpm,maxrpm,max_w;
   {
     int type = *(data+2) - '0';
     if( type == 1 )
@@ -214,11 +229,37 @@ void processBleCommandPackage(byte *data)
       char *buf = strchr(data, ',');
       if (buf != NULL)
         l = atof(buf + 1);
-      supervisor.setRobotDimension( r, l );
-      driveSupervisor.setRobotDimension(r, l);
+
+      SETTINGS settings = supervisor.getSettings();
+      settings.radius = r;
+      settings.length = l;
+      supervisor.updateSettings( settings );
+      driveSupervisor.updateSettings( settings );
     }
     else if( type == 2)
     {
+      int minRPM = atoi((char *)(data+3));
+      float r = atof((char *)(data+3));
+      char *buf = strchr(data, ',');
+      if (buf == NULL)
+      {
+        return;
+      }
+
+      int maxRPM = atof(buf + 1);
+      
+      buf = strchr(buf+1, ',');
+      if( buf == NULL )
+        return;
+
+      float max_w = atof(buf + 1);
+      SETTINGS settings = supervisor.getSettings();
+      settings.min_rpm = minRPM;
+      settings.max_rpm = maxRPM;
+      settings.max_w = max_w;
+
+      supervisor.updateSettings( settings );
+      driveSupervisor.updateSettings( settings );
 
     }
   }
@@ -233,6 +274,7 @@ void processBleCommandPackage(byte *data)
     log("use IMU:%d,%s\n", val, floatToStr(0, alpha));
     // driveSupervisor.mUseIMU = val;
     // driveSupervisor.alpha = alpha;
+    mUseIMU = val;
     driveSupervisor.setUseIMU(val, alpha);
     supervisor.setUseIMU(val, alpha);
   }
@@ -241,7 +283,7 @@ void processBleCommandPackage(byte *data)
   {
     bool val = *(data + 2) - '0';
     float filter = atof((char *)(data + 3));
-    log("IR flt:%d,%s\n", val, floatToStr(0, filter));
+    log("S IR flt:%d,%s\n", val, floatToStr(0, filter));
     supervisor.setIRFilter(val, filter);
     driveSupervisor.setIRFilter(val, filter);
   }
@@ -284,19 +326,16 @@ void setConfigValue(byte *cfgArray)
 
   if (settingsType == 1 || settingsType == 2 || settingsType == 3 || settingsType == 4)
   {
-    settings.kp = byteToFloat((byte *)(cfgArray + 1), 100);
-    settings.ki = byteToFloat((byte *)(cfgArray + 3), 1000);
-    settings.kd = byteToFloat((byte *)(cfgArray + 5), 1000);
+    double kp = byteToFloat((byte *)(cfgArray + 1), 100);
+    double ki = byteToFloat((byte *)(cfgArray + 3), 1000);
+    double kd = byteToFloat((byte *)(cfgArray + 5), 1000);
 
     log("KP:%s, KI:%s, KD:%s\n",
-        floatToStr(0, settings.kp),
-        floatToStr(1, settings.ki), floatToStr(2, settings.kd));
-    // Serial.print("KP:");
-    // Serial.print(settings.kp);
-    // Serial.print(" KI:");
-    // Serial.print(settings.ki);
-    // Serial.print(" KD:");
-    // Serial.println(settings.kd);
+        floatToStr(0, kp),
+        floatToStr(1, ki), floatToStr(2, kd));
+
+    supervisor.setPIDParams(settingsType, kp, ki,kd);
+    driveSupervisor.setPIDParams(settingsType, kp, ki,kd);
   }
 
   else if (settingsType == 5)
@@ -310,14 +349,14 @@ void setConfigValue(byte *cfgArray)
     settings.max_rpm = byteToInt((byte *)(cfgArray + 9));
     settings.min_rpm = byteToInt((byte *)(cfgArray + 11));
 
-    settings.radius = byteToFloat((byte *)(cfgArray + 13), 1000);
-    settings.length = byteToFloat((byte *)(cfgArray + 15), 1000);
+    settings.radius = byteToFloat((byte *)(cfgArray + 13), 10000);
+    settings.length = byteToFloat((byte *)(cfgArray + 15), 10000);
 
     // settings.pwm_diff = (int)cfgArray[13]; //byteToInt((byte *)(cfgArray + 13) );
     // settings.pwm_zero = (int)cfgArray[14];
     // settings.angleOff = byteToFloat((byte *)(cfgArray + 15), 100);
 
-    log("atObs:%s, unsafe:%s, dfw:%s, max_w:%s, max_rmp:%d, min_rpm:%d, R:%s, L:%s\n",
+    log("atObs:%s,unsafe:%s,dfw:%s,max_w:%s,max_rmp:%d,min_rpm:%d,R:%s,L:%s\n",
         floatToStr(0, settings.atObstacle),
         floatToStr(1, settings.unsafe),
         floatToStr(2, settings.dfw),
@@ -325,27 +364,11 @@ void setConfigValue(byte *cfgArray)
         settings.max_rpm,
         settings.min_rpm,
         floatToStr(4, settings.radius),
-        floatToStr(5, settings.length)
+        floatToStr(5, settings.length));
 
-    );
-    // Serial.print(" atObstacle:");
-    // Serial.print(settings.atObstacle);
+      supervisor.updateSettings( settings );
+      driveSupervisor.updateSettings(settings );
 
-    // Serial.print(" unsafe:");
-    // Serial.print(settings.unsafe);
-    // Serial.print(" dfw:");
-    // Serial.print(settings.dfw);
-
-    // Serial.print(" v:");
-    // Serial.print(settings.velocity);
-    // Serial.print(" max_rpm:");
-    // Serial.print(settings.max_rpm);
-    // Serial.print(" min_rpm:");
-    // Serial.print(settings.min_rpm);
-    // Serial.print(" radius:");
-    // Serial.print(settings.radius);
-    // Serial.print(" length:");
-    // Serial.println(settings.length);
   }
  else if (settingsType == 6)
   {
@@ -382,12 +405,7 @@ void setConfigValue(byte *cfgArray)
   }
 
 
-  if (settingsType == 1 || settingsType == 5 || settingsType == 2 || settingsType == 3 || settingsType == 4)
-  {
-    supervisor.updateSettings(settings);
-    driveSupervisor.updateSettings(settings);
-  }
-
+ 
   // if (settingsType == 2 || settingsType == 3 || settingsType == 4 || settingsType == 6)
   // {
   //   balanceSupervisor.updateSettings(settings);
@@ -545,9 +563,9 @@ void processSetingsRequire()
   queueLen--;
 
   SETTINGS settings;
-  settings.sType = sType;
   // // 1: pid for 3 wheel; 2: pid for balance;  3: pid for speed; 4: PID theta  5: settings for robot; 6: settings for balance robot;
-  settings = supervisor.getSettings(sType);
+  settings = supervisor.getSettings();
+  settings.sType = sType;
   SendSettings(settings);
 }
 
@@ -561,12 +579,47 @@ void SendSettings(SETTINGS settings)
   byte settingsArray[18];
   settingsArray[0] = (byte)settingsType;
   int len = 7;
+
+  double p,i,d;
+  if( settingsType == 1)
+  {
+    p = settings.kp;
+    i = settings.ki;
+    d = settings.kd;
+  }
+  else if( settingsType == 2 )
+  {
+    p = settings.pkp;
+    i = settings.pki;
+    d = settings.pkd;
+  }
+  else if( settingsType == 3 )
+  {
+    p = settings.tkp;
+    i = settings.tki;
+    d = settings.tkd;
+  }
+  else if( settingsType == 4 )
+  {
+    p = settings.dkp;
+    i = settings.dki;
+    d = settings.dkd;
+  }
+
+  
   if (settingsType == 1 || settingsType == 2 || settingsType == 3 || settingsType == 4)
   {
 
-    floatToByte(settingsArray + 1, settings.kp, 100);
-    floatToByte(settingsArray + 3, settings.ki, 1000);
-    floatToByte(settingsArray + 5, settings.kd, 1000);
+    floatToByte(settingsArray + 1, p, 100);
+    floatToByte(settingsArray + 3, i, 1000);
+    floatToByte(settingsArray + 5, d, 1000);
+  Serial.print(p);
+  Serial.print(',');
+  Serial.print(i);
+  Serial.print(',');
+  Serial.println(d);
+
+
   }
 
   else if (settingsType == 5)
@@ -577,10 +630,10 @@ void SendSettings(SETTINGS settings)
     floatToByte(settingsArray + 7, settings.max_w, 100);
     intToByte(settingsArray + 9, settings.max_rpm);
     intToByte(settingsArray + 11, settings.min_rpm);
-    floatToByte(settingsArray + 13, settings.radius, 1000);
+    floatToByte(settingsArray + 13, settings.radius, 10000);
     // settingsArray[13] = (byte)settings.pwm_diff;
     // settingsArray[14] = (byte)settings.pwm_zero;
-    floatToByte(settingsArray + 15, settings.length, 1000);
+    floatToByte(settingsArray + 15, settings.length, 10000);
     len = 17;
   }
 /*  else if (settingsType == 6)
@@ -606,6 +659,16 @@ void SendSettings(SETTINGS settings)
     len = 18;
   }
   */
+
+  if( settingsType == 4)
+  {
+    settingsArray[7] = settings.useIMU;
+    floatToByte(settingsArray + 8, settings.imuAlpha, 100);
+    settingsArray[10] = settings.irFilter;
+
+    floatToByte(settingsArray + 11, settings.irAlpha, 100);
+    len = 13;
+  }
  
     sendSettingsPkgToBle(settingsArray, len);
 }

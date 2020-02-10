@@ -33,6 +33,11 @@ void DifferencialController::execute(Robot *robot, Input *input, Output *output,
     double sv = input->v;
     double sw = input->w;
 
+    // Serial.print(sv);
+    // Serial.print(',');
+    // Serial.print(sw);
+    // Serial.print(',');
+
     double max_w = robot->max_w;
 
 		if (sw > max_w)   //限制拐弯时的转速
@@ -66,13 +71,6 @@ void DifferencialController::execute(Robot *robot, Input *input, Output *output,
       }
 	  } 
 
-
-  // Serial.print(vel.vel_l, 3);
-  // Serial.print(',');
-
-  // Serial.print(robot->vel_l, 3);
-  // Serial.print(',');
-
   if( sv == 0 && lastV != 0 )
   {
     lastError = 0;
@@ -89,6 +87,11 @@ void DifferencialController::execute(Robot *robot, Input *input, Output *output,
     output->vel_r = vel.vel_r;
 
     lastV = sv;
+
+    // Serial.print(output->vel_l);
+    // Serial.print(',');
+    // Serial.println(output->vel_r);
+
     return;
 
   }
@@ -141,6 +144,10 @@ void DifferencialController::execute(Robot *robot, Input *input, Output *output,
 
   output->vel_l = vel_l;
   output->vel_r = vel_r;
+
+    // Serial.print(output->vel_l);
+    // Serial.print(',');
+    // Serial.println(output->vel_r);
 
   lastV = sv;
   return;

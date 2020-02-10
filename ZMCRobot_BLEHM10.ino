@@ -48,18 +48,24 @@ byte currentState = STATE_IDLE;
 #else
   IMU mIMU;
 #endif
+
+bool mIMUReady = false;
+
 Supervisor supervisor;
 DriveSupervisor driveSupervisor;
 BlinkLed blinkLed;
 //BlinkMatrixLed blinkLed;
 bool bExecDrive, bExecGTG;
 
+bool mUseIMU = false;
 
 long trigTime, echoTime;
 double ultrasonicDistance;
 bool waitForEcho = false;
 long lastTrigTimer = 0;
 
+
+bool mROSConnected = false;
 
 bool doCheckBattleVoltage = true;
 bool openDebug = false;
@@ -198,6 +204,7 @@ void setup()
   blinkLed.init();
   blinkLed.normalBlink();
 
+  Serial.println("READY!");
   interrupts();
   
   // bCount = 0;
@@ -231,16 +238,47 @@ void loop()
   processSetingsRequire();
   //ultrasonic process
   processUltrasonic();
+
+  if( mIMUReady )
+  {
+    mIMUReady = false;
+
+     mIMU.readIMU( 0 );           //1/GYRO_RATE
+     mIMU.calculateAttitute( 0 ); //1/GYRO_RATE
+
+      if( mROSConnected )
+      {
+          int16_t *rawData = mIMU.getRawData();
+          Serial.print("RD");
+          for( int i=0; i<8; i++)
+          {
+            Serial.print(rawData[i]);
+            Serial.print(',');
+          }
+          Serial.println(rawData[8]);
+      }
+
+  }
+
+
   unsigned long millisNow = millis();
   if (millisNow - millisPrev >= 10)
   {
-     mIMU.readIMU((millisNow - millisPrev)/1000.0);           //1/GYRO_RATE
-     mIMU.calculateAttitute(  (millisNow - millisPrev)/1000.0); //1/GYRO_RATE
-
-    millisPrev = millisNow;
-
+     millisPrev = millisNow;
+    //  mIMU.readIMU((millisNow - millisPrev)/1000.0);           //1/GYRO_RATE
+    //  mIMU.calculateAttitute(  (millisNow - millisPrev)/1000.0); //1/GYRO_RATE
+    //   if( mROSConnected )
+    //   {
+    //       int16_t *rawData = mIMU.getRawData();
+    //       Serial.print("RD");
+    //       for( int i=0; i<8; i++)
+    //       {
+    //         Serial.print(rawData[i]);
+    //         Serial.print(',');
+    //       }
+    //       Serial.println(rawData[8]);
+    //   }
     driverCounter++;
-
     if( driverCounter >= 10 )
     {
       driverCounter = 0;
@@ -255,35 +293,55 @@ void loop()
         }
         supervisor.getIRDistances(irDistance);
         pos = supervisor.getRobotPosition();
-        sendRobotStateValue(8, pos, irDistance, batteryVoltage);
+        // sendRobotStateValue(8, pos, irDistance, batteryVoltage);
       }
       else if (currentState == STATE_DRIVE)
       {
         driveSupervisor.execute(readLeftEncoder(), readRightEncoder(), mIMU.getGyro(2), 0.1); //1/20
         driveSupervisor.getIRDistances(irDistance);
         pos = driveSupervisor.getRobotPosition();
-        sendRobotStateValue(8, pos, irDistance, batteryVoltage);
+        // sendRobotStateValue(8, pos, irDistance, batteryVoltage);
       }
       else
       {
         supervisor.readIRDistances(irDistance);
-        // if( supervisor.isUseIMU() )
+        if( mUseIMU )
         {
           pos.theta = (PI * mIMU.getYaw()) / 180.0;
           // supervisor.setRobotPosition(pos.x, pos.y, pos.theta);
           // driveSupervisor.setRobotPosition(pos.x, pos.y, pos.theta);
         }
+        // sendRobotStateValue(8, pos, irDistance, batteryVoltage);
+      }
+
+//report Robot States
         sendRobotStateValue(8, pos, irDistance, batteryVoltage);
 
-        log("RP%d,%d,%d,%d,%d\n",
-              (int)(1000 * pos.x),
-              (int)(1000 * pos.y),
-              (int)(1000 * pos.theta),
-              (int)(1000 * 0),
-              (int)(1000 * 0));
+        if( mROSConnected )
+        {
 
-      }
-    
+          log("RP%d,%d,%d,%d,%d\n",
+                (int)(10000 * pos.x),
+                (int)(10000 * pos.y),
+                (int)(10000 * pos.theta),
+                (int)(10000 * pos.w),
+                (int)(10000 * pos.v));
+
+          log("IR%d,%d,%d,%d,%d\n",
+                (int)(100 * irDistance[0]),
+                (int)(100 * irDistance[1]),
+                (int)(100 * irDistance[2]),
+                (int)(100 * irDistance[3]),
+                (int)(100 * irDistance[4]));
+
+          log("IM%d,%d,%d,%d\n",
+              (int)(1000* mIMU.getQuaternion(0)),
+              (int)(1000* mIMU.getQuaternion(1)),
+              (int)(1000* mIMU.getQuaternion(2)),
+              (int)(1000* mIMU.getQuaternion(3))
+          );
+        }
+                    
       batteryCounter++;
       if (batteryCounter >= 2)
       { // Measure battery every 1s
@@ -328,6 +386,11 @@ Position getRobotPosition()
       return supervisor.getRobotPosition();
     }
     
+}
+
+double getYaw()
+{
+  return mIMU.getYaw();
 }
 
 void setGoal(double x, double y, int theta, double v)
@@ -510,6 +573,11 @@ void processUltrasonic()
     }
     digitalWrite(ULTRASONIC_TRIG, LOW); //trig the ultrosonic
   }
+}
+
+void imuIntterrupt()
+{
+  mIMUReady = true;
 }
 
 //the ultrasonic isr service

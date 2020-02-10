@@ -11,7 +11,23 @@ public:
   virtual void reset() = 0;
   virtual void execute(Robot *robot, Input *input, Output *output, double dt) = 0;
 
-  void updateSettings(SETTINGS settings);
+  virtual void setSettings(SETTINGS settings)
+  {
+      Kp = settings.kp;
+      Ki = settings.ki;
+      Kd = settings.kd;
+
+      lastError = 0;
+      lastErrorIntegration = 0;
+
+  };
+
+  void setPIDParam(double kp, double ki, double kd )
+  {
+    Kp = kp;
+    Ki = ki;
+    Kd = kd;
+  };
 
   void PrintInfo()
   {
@@ -24,23 +40,7 @@ public:
         floatToStr(4, lastErrorIntegration));
   }
 
-  void getSettings(SETTINGS *pSettings)
-  {
-    pSettings->kp = Kp;
-    pSettings->ki = Ki;
-    pSettings->kd = Kd;
-  }
-
-  void setCtrlParam(double val, int idx)
-  {
-    if (idx == 0)
-      Kp = val;
-    else if (idx == 1)
-      Ki = val;
-    else if (idx == 2)
-      Kd = val;
-  }
-
+ 
 protected:
   double lastError;
   double lastErrorIntegration;
