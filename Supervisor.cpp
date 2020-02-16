@@ -51,10 +51,6 @@ Supervisor::Supervisor()
   execTime = 0;
 }
 
-void Supervisor::setHaveIRSensor(int idx, byte val)
-{
-  robot.setHaveIrSensor(idx, val);
-}
 
 void Supervisor::updateSettings(SETTINGS settings)
 {
@@ -183,15 +179,27 @@ void Supervisor::setRobotPosition(double x, double y, double theta)
   robot.theta = theta;
 }
 
-void Supervisor::setSimulateMode(bool val)
+void Supervisor::setSimulateMode(int val)
 {
-  mSimulateMode = val;
-  if (mSimulateMode)
+  mSimulateMode = (val == 1 );
+  if (val != 0 )
   {
     for (int i = 0; i < 5; i++)
-      setHaveIRSensor(i, false);
+      setHaveIRSensor(i, 0);
   }
+  else
+  {
+    for (int i = 0; i < 5; i++)
+      setHaveIRSensor(i, 1);
+  }
+  
 }
+
+void Supervisor::setHaveIRSensor(int idx, byte val)
+{
+  robot.setHaveIrSensor(idx, val);
+}
+
 
 void Supervisor::setIRFilter(bool open, float filter)
 {
@@ -303,6 +311,17 @@ void Supervisor::executeAvoidAndGotoGoal(double dt)
   {
     if (at_obstacle)
     {
+
+      Serial.print("At OB:");
+      IRSensor **irSensors = robot.getIRSensors();
+        log("%s, %s, %s, %s， %s\n",
+          floatToStr(0, irSensors[0]->distance),
+          floatToStr(1, irSensors[1]->distance),
+          floatToStr(2, irSensors[2]->distance),
+          floatToStr(3, irSensors[3]->distance),
+          floatToStr(4, irSensors[4]->distance));
+      
+
 
       bool ret = changeToFollowWall();
 

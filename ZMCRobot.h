@@ -87,7 +87,7 @@ void setGoal(double x, double y, int theta, double v);
 void startGoToGoal();
 void stopRobot();
 void ResetRobot();
-void SetSimulateMode(bool sm);
+void SetSimulateMode(int sm);
 
 void SetIgnoreObstacle(bool igm);
 

@@ -64,12 +64,13 @@ void processBleCommandPackage(byte *data)
   //     doCheckBattleVoltage = false;
   // }
 
-  else if (cmd[0] == 'S' && cmd[1] == 'M') //simulate mode
+  else if (cmd[0] == 'S' && cmd[1] == 'M') //simulate mode sm0 sm1 sm2; 0: cancel simulate mode 1:simulate with the obstacle; 2: simulate with obstacle plus motor
   {
-    if (data[2] == 1)
-      SetSimulateMode(true);
-    else
-      SetSimulateMode(false);
+      SetSimulateMode( data[2]);
+    // if (data[2] == 1)
+    //   SetSimulateMode(true);
+    // else
+    //   SetSimulateMode(false);
   }
   else if (cmd[0] == 'I' && cmd[1] == 'O') //ignore atObstacle
   {

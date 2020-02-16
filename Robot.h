@@ -62,6 +62,7 @@ typedef struct
 //平衡车参数
   int pwm_diff;
   int max_pwm, pwm_zero;
+  int sampleTime;
   // double angleOff, wheelSyncKp;
 } SETTINGS;
 

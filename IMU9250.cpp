@@ -14,6 +14,15 @@ IMU9250::IMU9250()
 void IMU9250::init(int gyroRate)
 {
 
+  Serial.println("init mpu9250...");
+
+    Serial.print("dtoi(19):");
+    Serial.println(digitalPinToInterrupt(IMU_INT_PIN));
+    pinMode(IMU_INT_PIN, INPUT);
+    // imu intterupt
+    attachInterrupt(digitalPinToInterrupt(IMU_INT_PIN), imuIntterrupt, RISING);
+
+
   Wire.begin(); // set master mode, default on SDA/SCL for Ladybug   
   Wire.setClock(400000); // I2C frequency at 400 kHz
   delay(100);  
@@ -28,14 +37,9 @@ void IMU9250::init(int gyroRate)
         mpu.setMagBias(i, magBias[i]);
         mpu.setMagScale(i, magScale[i]);
      }
-     mpu.setMagneticDeclination(magnetic_declination);
-      mIMUReady = true;
-
-  pinMode(IMU_INT_PIN, INPUT_PULLUP);
-  // imu intterupt
-  attachInterrupt(digitalPinToInterrupt(IMU_INT_PIN), imuIntterrupt, RISING);
-
-
+    mpu.setMagneticDeclination(magnetic_declination);
+    mIMUReady = true;
+    mpu.update();
    }
    else
    {

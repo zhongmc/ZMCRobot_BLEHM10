@@ -48,7 +48,7 @@ void DifferencialController::execute(Robot *robot, Input *input, Output *output,
     if( sv != 0 )  //拐弯减速
     {
       double av = abs(sv);
-      av = (0.05-av)/max_w * abs(sw) + av;
+      av = (0.08-av)/max_w * abs(sw) + av;
       if( av <= 0 )
         av = 0.01;
 

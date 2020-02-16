@@ -36,7 +36,7 @@ public:
 
   void setIRFilter(bool open, float filter);
 
-  void setSimulateMode(bool val);
+  void setSimulateMode(int val);
 
   void setUseIMU(bool beUseIMU, double _alpha)
   {

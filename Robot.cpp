@@ -144,6 +144,7 @@ void Robot::updateSettings(SETTINGS settings)
     mSettings.atObstacle = settings.atObstacle;
     mSettings.unsafe = settings.unsafe;
     mSettings.dfw = settings.dfw;
+    mSettings.sampleTime = settings.sampleTime;
   }
   else if( settings.sType == 1)
   {
@@ -334,7 +335,7 @@ void Robot::readIRSensors(double dt)
 
   for (int i = 0; i < 5; i++)
   {
-    if (haveIrSensor[i])
+    if (haveIrSensor[i] != 0 )
       irSensors[i]->readPosition();
   }
 
@@ -343,7 +344,7 @@ void Robot::readIRSensors(double dt)
   for (int i = 0; i < 5; i++)
   {
     //如果读入的障碍物距离突变（大于速度*时间），重新读入
-    if (haveIrSensor[i] && abs(irSensors[i]->lastDistance - irSensors[i]->distance) > maxDis)
+    if ((haveIrSensor[i] != 0 ) && abs(irSensors[i]->lastDistance - irSensors[i]->distance) > maxDis)
       irSensors[i]->readPosition();
   }
 

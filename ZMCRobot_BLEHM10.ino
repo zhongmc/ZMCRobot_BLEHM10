@@ -49,7 +49,7 @@ byte currentState = STATE_IDLE;
   IMU mIMU;
 #endif
 
-bool mIMUReady = false;
+bool mIMUDataOk = false;
 
 Supervisor supervisor;
 DriveSupervisor driveSupervisor;
@@ -83,6 +83,8 @@ extern int comDataCount;
 //MyMenu menu(&menuItems[0]);
 
 unsigned long millisPrevKey, millisPrev, loopExecuteTime;
+
+int sampleRate = 10;  // sampleTime = 10 * sampleRate (ms);
 
 //bool backLightOn = false;
 // LiquidCrystal_I2C lcd(0x27, 16, 2);
@@ -176,25 +178,32 @@ void setup()
   // ultr sound echo intterupt
   attachInterrupt(digitalPinToInterrupt(ULTRASONIC_ECHO), UltrasonicEcho, CHANGE);
 
-  SETTINGS mSettings;
-  mSettings.sType = 0;
+  // SETTINGS mSettings;
+  // mSettings.sType = 0;
 
-  mSettings.sType = 0;
-  mSettings.kp = 5;
-  mSettings.ki = 0.01;
-  mSettings.kd = 0.05;
+  // mSettings.sType = 0;
+  // mSettings.kp = 5;
+  // mSettings.ki = 0.01;
+  // mSettings.kd = 0.05;
 
-  mSettings.max_rpm = 200;
-  mSettings.min_rpm = 40; //45
+  // mSettings.max_rpm = 200;
+  // mSettings.min_rpm = 40; //45
 
-  mSettings.atObstacle = 0.25; //0.15
-  mSettings.unsafe = 0.1;
-  mSettings.dfw = 0.2;      //0.25
-  mSettings.velocity = 0.2; //0.3
+  // mSettings.atObstacle = 0.25; //0.15
+  // mSettings.unsafe = 0.1;
+  // mSettings.dfw = 0.2;      //0.25
+  // mSettings.velocity = 0.2; //0.3
 
   // supervisor.updateSettings(mSettings);
   // driveSupervisor.updateSettings(mSettings);
 
+  SETTINGS sett = supervisor.getSettings();
+
+  sampleRate = sett.sampleTime/10;
+
+  Serial.print("SampleRate:");
+  Serial.println( sampleRate );
+  
   supervisor.init();
   driveSupervisor.init();
 
@@ -239,9 +248,9 @@ void loop()
   //ultrasonic process
   processUltrasonic();
 
-  if( mIMUReady )
+  if( mIMUDataOk )
   {
-    mIMUReady = false;
+    mIMUDataOk = false;
 
      mIMU.readIMU( 0 );           //1/GYRO_RATE
      mIMU.calculateAttitute( 0 ); //1/GYRO_RATE
@@ -279,13 +288,13 @@ void loop()
     //       Serial.println(rawData[8]);
     //   }
     driverCounter++;
-    if( driverCounter >= 10 )
+    if( driverCounter >= sampleRate )
     {
       driverCounter = 0;
       if (currentState == STATE_GOTOGOAL)
       {
         //report states
-        supervisor.execute(readLeftEncoder(), readRightEncoder(), mIMU.getGyro(2),  0.1);
+        supervisor.execute(readLeftEncoder(), readRightEncoder(), mIMU.getGyro(2),  0.01*sampleRate);
         if( supervisor.mSimulateMode )
         {
           delay(3);
@@ -297,7 +306,7 @@ void loop()
       }
       else if (currentState == STATE_DRIVE)
       {
-        driveSupervisor.execute(readLeftEncoder(), readRightEncoder(), mIMU.getGyro(2), 0.1); //1/20
+        driveSupervisor.execute(readLeftEncoder(), readRightEncoder(), mIMU.getGyro(2), 0.01*sampleRate); //1/20
         driveSupervisor.getIRDistances(irDistance);
         pos = driveSupervisor.getRobotPosition();
         // sendRobotStateValue(8, pos, irDistance, batteryVoltage);
@@ -399,6 +408,15 @@ void setGoal(double x, double y, int theta, double v)
   // count2 = 0;
 
   supervisor.setGoal(x, y, theta, v);
+  Serial.print("SG:");
+  Serial.print(x);
+  Serial.print(",");
+  Serial.print(y);
+  Serial.print(",");
+  Serial.print(theta);
+  Serial.print(",");
+  Serial.println(v);
+
 }
 
 void startGoToGoal()
@@ -460,15 +478,16 @@ void driveIsr()
   // driveSupervisor.execute(readLeftEncoder(), readRightEncoder(), 0.05); //1/20
 }
 
-void SetSimulateMode(bool val)
+void SetSimulateMode(int val)
 {
   // supervisor.mSimulateMode = val;
   supervisor.setSimulateMode(val);
-  driveSupervisor.mSimulateMode = val;
-  if (val)
+  driveSupervisor.mSimulateMode = (val != 0);
+  if (val != 0 )
   {
     doCheckBattleVoltage = false;
-    Serial.println("simulate.");
+    Serial.print("simulate: ");
+    Serial.println( val );
   }
   else
   {
@@ -577,7 +596,7 @@ void processUltrasonic()
 
 void imuIntterrupt()
 {
-  mIMUReady = true;
+  mIMUDataOk = true;
 }
 
 //the ultrasonic isr service

@@ -11,7 +11,7 @@ extern DriveSupervisor driveSupervisor;
 extern long trigTime, echoTime;
 extern double ultrasonicDistance;
 extern unsigned long loopExecuteTime;
-static char comData[52];
+static char comData[82];
 int comDataCount = 0;
 
 //extern Supervisor supervisor;
@@ -20,8 +20,10 @@ extern volatile long count1, count2;
 
 extern bool openDebug;
 extern bool mROSConnected;
+extern bool mUseIMU;
 
 extern double batteryVoltage;
+extern int sampleRate;
 
 // char *scanfDouble(char *buf, double&value, char split);
 // char *scanfInt(char *buf, int&value, char split);
@@ -50,9 +52,9 @@ void checkSerialData()
         processCommand(comData, comDataCount);
         comDataCount = 0;
       }
-      if (comDataCount > 50) //some error
+      if (comDataCount > 80) //some error
       {
-        Serial.print("Na. err");
+        Serial.print("Err, CMD too long (>80)...");
         // comData[comDataCount] = 0;
         // Serial.println(comData);
         comDataCount = 0;
@@ -208,7 +210,7 @@ void processCommand(char *buffer, int bufferLen)
   {
     SETTINGS sett = supervisor.getSettings( );
 
-    log("ROP%d,%d,%s,%s,%s,%s,%s,%s\n", sett.min_rpm, sett.max_rpm, 
+    log("ROP%d,%d,%d,%s,%s,%s,%s,%s,%s\n", sett.sampleTime, sett.min_rpm, sett.max_rpm, 
           floatToStr(0, sett.radius),
           floatToStr(1, sett.length),
           floatToStr(2, sett.atObstacle),
@@ -247,34 +249,37 @@ void processCommand(char *buffer, int bufferLen)
     // float r, l, atobs, dfw, usafe, max_w;
 
     SETTINGS sett;
+    Serial.println("Set Robot:");
 
-    char *ptrs[8];
-    int count = split(buffer+2, ',', ptrs, 8);
-    if( count < 8 )
+    char *ptrs[9];
+    int count = split(buffer+2, ',', ptrs, 9);
+    if( count < 9 )
     {
       Serial.println("Data format error!");
       return;
     }
 
-    sett.min_rpm = atoi( ptrs[0]);
-    sett.max_rpm  = atoi(ptrs[1]);
-    sett.radius = atof( ptrs[2] );
-    sett.length = atof( ptrs[3] );
-    sett.atObstacle = atof( ptrs[4] );
-    sett.dfw = atof( ptrs[5] );
-    sett.unsafe = atof( ptrs[6] );
-    sett.max_w = atof( ptrs[7] ); 
+    sett.sampleTime = atoi( ptrs[0]);
+    Serial.println(sett.sampleTime);
+  
+    sett.min_rpm = atoi( ptrs[1]);
+    Serial.println(sett.min_rpm);
+
+    sett.max_rpm  = atoi(ptrs[2]);
+    sett.radius = atof( ptrs[3] );
+    sett.length = atof( ptrs[4] );
+    sett.atObstacle = atof( ptrs[5] );
+    sett.dfw = atof( ptrs[6] );
+    sett.unsafe = atof( ptrs[7] );
+    sett.max_w = atof( ptrs[8] ); 
    
     // sscanf(buffer+2, "%i,%i,%f,%f,%f,%f,%f,%f", &sett.min_rpm, &sett.max_rpm, &sett.radius, 
     //           &sett.length, &sett.atObstacle, &sett.dfw, 
     //           &sett.unsafe, &sett.max_w );
-    Serial.print("Set Robot:");
-    Serial.print(sett.min_rpm);
-    Serial.print(',');
     Serial.print(sett.max_rpm);
     Serial.print(',');
-    Serial.print(sett.radius, 4);
-    Serial.print(',');
+    Serial.println(sett.radius, 4);
+
     Serial.print(sett.length, 4);
     Serial.print(',');
     Serial.print(sett.atObstacle, 4);
@@ -284,6 +289,15 @@ void processCommand(char *buffer, int bufferLen)
     Serial.print(sett.unsafe, 4);
     Serial.print(',');
     Serial.println(sett.max_w, 4);
+
+    
+    sett.sType = 0;
+    supervisor.updateSettings(sett); 
+    driveSupervisor.updateSettings(sett);
+  
+    sampleRate = sett.sampleTime/10;
+    Serial.print("Sample：");
+    Serial.println(sampleRate );
 
   }
 
@@ -299,7 +313,7 @@ void processCommand(char *buffer, int bufferLen)
 
     setDriveGoal(v, w);
   }
-  else if (ch0 == 's' && ch1 == 'm') //simulate mode
+  else if (ch0 == 's' && ch1 == 'm') //simulate mode //simulate mode sm0 sm1 sm2; 0: cancel simulate mode 1:simulate with the obstacle; 2: simulate with obstacle plus motor
   {
     int val = atoi(buffer + 2);
     SetSimulateMode(val);
@@ -350,23 +364,55 @@ void processCommand(char *buffer, int bufferLen)
   else if (ch0 == 'g' && ch1 == 'g') //set goto goal goal
   {
 
-    double fvs[4];
-    getDoubleValues(buffer + 2, 4, fvs);
-    setGoal(fvs[0], fvs[1], fvs[2], fvs[3]);
+
+    char *ptrs[5];
+    int count = split(buffer+2, ',', ptrs, 4);
+    if( count < 4 )
+    {
+      Serial.println("Data format error!");
+      return;
+    }
+
+    Serial.println( buffer );
+    
+    double x = atof( ptrs[0] );
+    double y = atof( ptrs[1] );
+    double theta = atof( ptrs[2] );
+    double v = atof( ptrs[3] );
+    setGoal(x, y, theta, v);
   }
 
   else if (ch0 == 'o' && ch1 == 'd') //set obstacle distance
   {
     double ods[5];
-    getDoubleValues(buffer + 2, 5, ods);
+   
+    char *ptrs[5];
+    int count = split(buffer+2, ',', ptrs, 5);
+    if( count < 5 )
+    {
+      Serial.println("Data format error!");
+      return;
+    }
+
+    for(int i=0; i<5; i++)
+      ods[i] = atof( ptrs[i] );
     supervisor.setObstacleDistance(ods);
   }
   else if (ch0 == 'r' && ch1 == 'p') //set robot position
   {
-    double fvs[3];
-    getDoubleValues(buffer + 2, 3, fvs);
-    supervisor.setRobotPosition(fvs[0], fvs[1], fvs[2]);
-    //to do
+
+        char *ptrs[5];
+    int count = split(buffer+2, ',', ptrs, 3);
+    if( count < 3 )
+    {
+      Serial.println("Data format error!");
+      return;
+    }
+
+    double x = atof( ptrs[0] );
+    double y = atof( ptrs[1] );
+    double theta = atof( ptrs[2] );
+    supervisor.setRobotPosition(x, y, theta);
   }
 
   else if (ch0 == 'i' && ch1 == 'o') //ignore atObstacle

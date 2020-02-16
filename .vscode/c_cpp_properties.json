@@ -3,13 +3,11 @@
         {
             "name": "Win32",
             "includePath": [
-                "C:\\arduino-1.8.10\\tools\\**",
-                "C:\\arduino-1.8.10\\hardware\\arduino\\avr\\**",
-                "C:\\arduino-1.8.10\\libraries\\**",
-                "c:\\xuexi\\robot\\ZMCRobot\\libraries\\**"
+                "C:\\Users\\明昌\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.6.16\\**",
+                "C:\\Users\\明昌\\AppData\\Local\\Arduino15\\packages\\arduino\\tools\\**"
             ],
             "forcedInclude": [
-                "C:\\arduino-1.8.10\\hardware\\arduino\\avr\\cores\\arduino\\Arduino.h"
+                "C:\\Users\\明昌\\AppData\\Local\\Arduino15\\packages\\arduino\\hardware\\avr\\1.6.16\\cores\\arduino\\Arduino.h"
             ],
             "intelliSenseMode": "msvc-x64"
         }
