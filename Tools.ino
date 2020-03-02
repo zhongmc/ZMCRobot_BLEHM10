@@ -11,6 +11,8 @@ extern DriveSupervisor driveSupervisor;
 extern long trigTime, echoTime;
 extern double ultrasonicDistance;
 extern unsigned long loopExecuteTime;
+extern int imuCycle;
+
 static char comData[82];
 int comDataCount = 0;
 
@@ -131,6 +133,9 @@ void processCommand(char *buffer, int bufferLen)
 
     Serial.print("exec time:");
     Serial.println(loopExecuteTime );
+    Serial.print("IMU Cycle:");
+    Serial.println(imuCycle);
+
     Serial.println("\r\n==");
     supervisor.getRobotInfo();
     Serial.println("\r\n==");

@@ -82,8 +82,8 @@ extern int comDataCount;
 //menu_item menuItems[17];
 //MyMenu menu(&menuItems[0]);
 
-unsigned long millisPrevKey, millisPrev, loopExecuteTime;
-
+unsigned long millisPrevKey, millisPrev, loopExecuteTime, imuMillisPrev;
+int imuCycle;
 int sampleRate = 10;  // sampleTime = 10 * sampleRate (ms);
 
 //bool backLightOn = false;
@@ -96,7 +96,7 @@ double irDistance[5];
 Position pos;
 
 double batteryVoltage;  // Measured battery level
-uint8_t batteryCounter; // Counter used to check if it should check the battery level
+uint8_t batteryCounter, batteryLowCount; // Counter used to check if it should check the battery level
 
 uint8_t driverCounter; 
 
@@ -154,6 +154,7 @@ void setup()
 
   mIMU.init( 10 );  //gyroRate (sample frenquence)
 
+  imuMillisPrev = millis();
 
   pinMode(13, OUTPUT);
 
@@ -236,6 +237,7 @@ void setup()
   millisPrevKey = millis();
   millisPrev = millisPrevKey; //millis();
   driverCounter = 0;
+  batteryLowCount = 0;
 }
 
 void loop()
@@ -248,8 +250,13 @@ void loop()
   //ultrasonic process
   processUltrasonic();
 
+  unsigned long millisNow;
   if( mIMUDataOk )
   {
+    millisNow = millis();
+    imuCycle = millisNow - imuMillisPrev;
+    imuMillisPrev = millisNow;
+    
     mIMUDataOk = false;
 
      mIMU.readIMU( 0 );           //1/GYRO_RATE
@@ -270,7 +277,7 @@ void loop()
   }
 
 
-  unsigned long millisNow = millis();
+  millisNow = millis();
   if (millisNow - millisPrev >= 10)
   {
      millisPrev = millisNow;
@@ -352,16 +359,18 @@ void loop()
         }
                     
       batteryCounter++;
-      if (batteryCounter >= 2)
-      { // Measure battery every 1s
+      if (batteryCounter >= 100/sampleRate )  // Measure battery every 1s
+      { 
         batteryCounter = 0;
         if (isBatteryLow())
         {
-          if (doCheckBattleVoltage && isBatteryLow()) //read again
+          Serial.println("Bat L...");
+          batterLowCount++;
+          if( doCheckBattleVoltage && batterLowCount == 3)
           {
+
             if (currentState != STATE_IDLE)
             {
-              Serial.println("Bat L...");
               stopAndReset();
               currentState = STATE_IDLE;
 
@@ -378,6 +387,13 @@ void loop()
             blinkLed.slowBlink();
           }
         }
+        else
+        {
+          if( batteryLowCount != 0 )
+            Serial.println("Bat ok.");
+          batteryLowCount = 0;
+        }
+        
       }
     }
     loopExecuteTime = millis() - millisNow;
