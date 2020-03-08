@@ -2,7 +2,7 @@
     "sketch": "ZMCRobot_BLEHM10.ino",
     "board": "arduino:avr:mega",
     "output": "../build/zmcrobot_blehm10",
-    "port": "COM8",
+    "port": "COM9",
     "programmer": "AVR ISP",
     "configuration": "cpu=atmega2560"
 }

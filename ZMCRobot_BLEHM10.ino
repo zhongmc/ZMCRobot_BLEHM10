@@ -272,6 +272,21 @@ void loop()
             Serial.print(',');
           }
           Serial.println(rawData[8]);
+
+          log("RP%d,%d,%d,%d,%d\n",
+                (int)(10000 * pos.x),
+                (int)(10000 * pos.y),
+                (int)(10000 * pos.theta),
+                (int)(10000 * pos.w),
+                (int)(10000 * pos.v));
+
+          log("IM%d,%d,%d,%d\n",
+              (int)(1000* mIMU.getQuaternion(0)),
+              (int)(1000* mIMU.getQuaternion(1)),
+              (int)(1000* mIMU.getQuaternion(2)),
+              (int)(1000* mIMU.getQuaternion(3))
+          );
+
       }
 
   }
@@ -336,12 +351,12 @@ void loop()
         if( mROSConnected )
         {
 
-          log("RP%d,%d,%d,%d,%d\n",
-                (int)(10000 * pos.x),
-                (int)(10000 * pos.y),
-                (int)(10000 * pos.theta),
-                (int)(10000 * pos.w),
-                (int)(10000 * pos.v));
+        //   log("RP%d,%d,%d,%d,%d\n",
+        //         (int)(10000 * pos.x),
+        //         (int)(10000 * pos.y),
+        //         (int)(10000 * pos.theta),
+        //         (int)(10000 * pos.w),
+        //         (int)(10000 * pos.v));
 
           log("IR%d,%d,%d,%d,%d\n",
                 (int)(100 * irDistance[0]),
@@ -350,12 +365,12 @@ void loop()
                 (int)(100 * irDistance[3]),
                 (int)(100 * irDistance[4]));
 
-          log("IM%d,%d,%d,%d\n",
-              (int)(1000* mIMU.getQuaternion(0)),
-              (int)(1000* mIMU.getQuaternion(1)),
-              (int)(1000* mIMU.getQuaternion(2)),
-              (int)(1000* mIMU.getQuaternion(3))
-          );
+        //   log("IM%d,%d,%d,%d\n",
+        //       (int)(1000* mIMU.getQuaternion(0)),
+        //       (int)(1000* mIMU.getQuaternion(1)),
+        //       (int)(1000* mIMU.getQuaternion(2)),
+        //       (int)(1000* mIMU.getQuaternion(3))
+        //   );
         }
                     
       batteryCounter++;
@@ -364,10 +379,11 @@ void loop()
         batteryCounter = 0;
         if (isBatteryLow())
         {
-          Serial.println("Bat L...");
-          batterLowCount++;
-          if( doCheckBattleVoltage && batterLowCount == 3)
+          batteryLowCount++;
+          if( doCheckBattleVoltage && batteryLowCount == 3)
           {
+            Serial.print(batteryVoltage);
+            Serial.println(" Bat L...");
 
             if (currentState != STATE_IDLE)
             {
