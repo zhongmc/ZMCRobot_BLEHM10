@@ -125,20 +125,20 @@ void processCommand(char *buffer, int bufferLen)
 
   if (ch0 == 'g' && ch1 == 'r')
   {
-    Serial.println("\r\n\r\n====");
-    Serial.print("BAT:");
+    Serial.println("\r\n====");
+    Serial.print("-BAT:");
     Serial.print(batteryVoltage);
     Serial.print(", uc dis:");
     Serial.println(ultrasonicDistance);
 
-    Serial.print("exec time:");
+    Serial.print("-exec time:");
     Serial.println(loopExecuteTime );
-    Serial.print("IMU Cycle:");
+    Serial.print("-IMU Cycle:");
     Serial.println(imuCycle);
 
-    Serial.println("\r\n==");
+    Serial.println("\r\n===");
     supervisor.getRobotInfo();
-    Serial.println("\r\n==");
+    Serial.println("\r\n===");
     driveSupervisor.getRobotInfo();
 
   }
@@ -355,12 +355,16 @@ void processCommand(char *buffer, int bufferLen)
     mIMU.debugOut();
 
   }
-  else if( ch0 == 'c' && ch1 == 'm')
+  else if( ch0 == 'c' && ch1 == 'm')   //do imu calibration
   {
-    Serial.println("Calibrate the IMU....");
+    Serial.println("- Calibrate the IMU....");
     mIMU.calibrateIMU();
-
   }
+  else if( ch0 == 's' && ch1 == 'c')  //save calibration to eeprom
+  {
+    mIMU.saveCalibrationToEEProm();
+  }
+
   else if (ch0 == 'g' && ch1 == 'o') //start go to goal
   {
     startGoToGoal();

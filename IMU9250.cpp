@@ -151,9 +151,8 @@ void IMU9250::calibrateIMU()
 
   mpu.calibrateAccelGyro();
   mpu.calibrateMag();
-
-  mpu.printCalibration();
-  saveCalibrationToEEProm();
+  mpu.reportCalibration(); //  printCalibration();
+  // saveCalibrationToEEProm();
 
 }
 
