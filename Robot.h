@@ -75,6 +75,9 @@ public:
   double x, y, theta, w;
   double velocity;
 
+  double prev_yaw;
+
+
   virtual PWM_OUT getPWMOut(double v, double w) = 0;
 
   virtual Vel ensure_w(double v, double w) = 0;
@@ -123,7 +126,7 @@ public:
 
   double getObstacleDistance();
   void updateState(long left_ticks, long right_ticks, double dt);
-  void updateState(long left_ticks, long right_ticks, double gyro, double alpha, double dt);
+  void updateState(long left_ticks, long right_ticks, double yaw, double alpha, double dt);
 
   void reset(long left_ticks, long right_ticks);
   Vel uni_to_diff(double v, double w);

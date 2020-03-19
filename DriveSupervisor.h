@@ -20,7 +20,7 @@ class DriveSupervisor
 {
 public:
   DriveSupervisor();
-  void execute(long left_ticks, long right_ticks, double gyro, double dt);
+  void execute(long left_ticks, long right_ticks, double yaw, double dt);
 
   void reset(long leftTicks, long rightTicks);
   void resetRobot();

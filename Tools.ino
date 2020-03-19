@@ -346,15 +346,19 @@ void processCommand(char *buffer, int bufferLen)
 
   else if( ch0 == 'i' && ch1 == 'm')  //imu info
   {
-    // Serial.print("IMU: ");
-    // Serial.print(mIMU.getRoll());
-    // Serial.write(',');
-    // Serial.print(mIMU.getPitch());
-    // Serial.write(',');
-    // Serial.println(mIMU.getYaw());
-    mIMU.debugOut();
+      bool val = *(buffer + 2) - '0';
+    float alpha = 0.5;
+    if (val == true)
+      alpha = atof((char *)(buffer + 4));
+    log("use IMU:%d,%s\n", val, floatToStr(0, alpha));
+    // driveSupervisor.mUseIMU = val;
+    // driveSupervisor.alpha = alpha;
+    mUseIMU = val;
+    driveSupervisor.setUseIMU(val, alpha);
+    supervisor.setUseIMU(val, alpha);
 
   }
+
   else if( ch0 == 'c' && ch1 == 'm')   //do imu calibration
   {
     Serial.println("- Calibrate the IMU....");

@@ -5,7 +5,9 @@
 #define IMU_INT_PIN 19
 
 #include <Arduino.h>
+#include "MadgwickAHRS.h"
 #include "MPU9250.h"
+
 
 
 
@@ -24,7 +26,12 @@ public:
   void calculateAttitute(double td);
   double getRoll() { return mpu.getRoll(); };
   double getPitch() { return mpu.getPitch(); };
-  double getYaw() { return mpu.getYaw(); };
+  double getYaw()  { return mpu.getYaw();} // { return filter.getYaw()-180.0; };
+
+  // double getRollRadians() { return mpu.getRollRadians(); };
+  // double getPitchRadians() { return mpu.getPitchRadians(); };
+  // double getYawRadians() { return mpu.getYawRadians(); };
+
 
   //  度/秒 角速度 idx 0，1，2 x y z
   double getGyro(int idx);
@@ -46,9 +53,12 @@ public:
 
 private:
   bool mIMUReady;
-  
   // MPU9250 mpu;
-class MPU9250_<TwoWire, AFS::A2G, GFS::G250DPS, MFS::M14BITS> mpu;
+  class MPU9250_<TwoWire, AFS::A2G, GFS::G250DPS, MFS::M14BITS> mpu;
+
+  // Madgwick filter;
+  // unsigned long prev_millis;
+
 private:
 // These can be measured once and entered here or can be calculated each time the device is powered on
 

@@ -37,10 +37,6 @@ void IMU9250::init(int gyroRate)
     attachInterrupt(digitalPinToInterrupt(IMU_INT_PIN), imuIntterrupt, RISING);
 
 
-  Wire.begin(); // set master mode, default on SDA/SCL for Ladybug   
-  Wire.setClock(400000); // I2C frequency at 400 kHz
-  delay(100);  
-
    if(  mpu.setup() == true )
    {
       loadCalibrationFromEEProm();
@@ -64,6 +60,7 @@ void IMU9250::init(int gyroRate)
      mIMUReady = false;
    }
    
+  //  prev_millis = millis();
 
 }
 
@@ -161,8 +158,23 @@ void IMU9250::readIMU(double dt)
 
   if( !mIMUReady )
     return;
+  // mpu.readIMU();
+
   mpu.update();
 }
+
+void IMU9250::calculateAttitute(double dt)
+{
+//   long cur_millis = millis();
+//   long process_time = cur_millis - prev_millis;
+//   filter.invSampleFreq = (float)process_time/1000.0f;
+//   filter.updateIMU(mpu.getGyro(0), mpu.getGyro(1), mpu.getGyro(2), 
+//       mpu.getAcc(0), mpu.getAcc(1), mpu.getAcc(2));
+//  prev_millis = cur_millis;
+  // filter.updateIMU(gx, gy, gz, ax, ay, az);
+ 
+}
+
 
 double IMU9250::getGyro(int idx)
 {
@@ -174,7 +186,6 @@ double IMU9250::getGyro(int idx)
 double IMU9250::getQuaternion(int idx)
 {
   return mpu.getQuaternion(idx);
-
 }
 
 double IMU9250::getAcceleration(int idx)
@@ -182,11 +193,6 @@ double IMU9250::getAcceleration(int idx)
   return mpu.getAcc(idx); ///error
 }
 
-//call readIMU() first
-void IMU9250::calculateAttitute(double dt)
-{
- 
-}
 
 
 void IMU9250::debugOut()

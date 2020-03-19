@@ -49,7 +49,6 @@ void initBluetooth()
     until it receives a new connection */
 
     bool ret = connectToHM10();
-    
   // assign event handlers for connected, disconnected to peripheral
   if( ret == true )
   {
@@ -57,13 +56,17 @@ void initBluetooth()
     // delay(100);
     // enumBlooth();
     // Serial.write('\n');
-
+    showBleState( 1 );
     bluetooth.write("AT");
     delay(200);
     enumBlooth();
-
     Serial.println("\nBLE ready...");
   }
+  else
+  {
+    showBleState( 0 );
+  }
+ 
   bleBufLen = 0;
 }
 
@@ -103,6 +106,9 @@ void doBleHM10Loop()
         bleConnected = false;
         bleBufLen = 0;
         Serial.println("BLE disconnect!");
+
+        showBleState( 1 );
+
         return;
       }
       else if(  strstr((char *)bleBuffer, "OK+CONN") != NULL ) //== (char *)bleBuffer )//OK+CONN
@@ -110,6 +116,7 @@ void doBleHM10Loop()
         bleConnected = true;
         bleBufLen = 0;
         Serial.println("BLE connected!");
+        showBleState( 2 );
         return;
         
       }
@@ -131,6 +138,9 @@ void doBleHM10Loop()
     {
       bleConnected = true;
       Serial.println("BLE pkg con ...");
+
+      showBleState( 2 );
+
     }
 
     // if( strstr((char *)bleBuffer, "OK+") == (char *)bleBuffer )

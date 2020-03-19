@@ -110,7 +110,7 @@ void DriveSupervisor::reset(long leftTicks, long rightTicks)
     m_DifController.reset();
 }
 
-void DriveSupervisor::execute(long left_ticks, long right_ticks, double gyro, double dt)
+void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, double dt)
 {
 
   //  uint32_t timer = micros();
@@ -119,10 +119,11 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double gyro, do
     robot.updateState((long)m_left_ticks, (long)m_right_ticks, dt);
   else
   {
-    if (mUseIMU)
-      robot.updateState(left_ticks, right_ticks, gyro, alpha, dt);
-    else
-      robot.updateState(left_ticks, right_ticks, dt);
+      robot.updateState(left_ticks, right_ticks, yaw, alpha, dt);
+    // if (mUseIMU)
+    //   robot.updateState(left_ticks, right_ticks, yaw, alpha, dt);
+    // else
+    //   robot.updateState(left_ticks, right_ticks, dt);
   }
 
   check_states();
@@ -232,6 +233,8 @@ void DriveSupervisor::setRobotPosition(double x, double y, double theta)
   robot.x = x;
   robot.y = y;
   robot.theta = theta;
+  robot.prev_yaw = theta;
+
 
 }
 

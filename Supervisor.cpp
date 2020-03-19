@@ -177,6 +177,7 @@ void Supervisor::setRobotPosition(double x, double y, double theta)
   robot.x = x;
   robot.y = y;
   robot.theta = theta;
+  robot.prev_yaw = theta;
 }
 
 void Supervisor::setSimulateMode(int val)
@@ -206,7 +207,7 @@ void Supervisor::setIRFilter(bool open, float filter)
   robot.setIRFilter(open, filter);
 }
 
-void Supervisor::execute(long left_ticks, long right_ticks, double gyro, double dt)
+void Supervisor::execute(long left_ticks, long right_ticks, double yaw, double dt)
 {
 
   long startTime = micros();
@@ -215,10 +216,11 @@ void Supervisor::execute(long left_ticks, long right_ticks, double gyro, double 
     robot.updateState((long)m_left_ticks, (long)m_right_ticks, dt);
   else
   {
-    if (mUseIMU)
-      robot.updateState(left_ticks, right_ticks, gyro, alpha, dt);
-    else
-      robot.updateState(left_ticks, right_ticks, dt);
+      robot.updateState(left_ticks, right_ticks, yaw, alpha, dt);
+    // if (mUseIMU)
+    //   robot.updateState(left_ticks, right_ticks, yaw, alpha, dt);
+    // else
+    //   robot.updateState(left_ticks, right_ticks, dt);
   }
 
   if (m_state == S_STOP && at_goal)

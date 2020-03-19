@@ -23,7 +23,7 @@ class Supervisor
 {
 public:
   Supervisor();
-  void execute(long left_ticks, long right_ticks, double gyro, double dt);
+  void execute(long left_ticks, long right_ticks, double yaw, double dt);
 
   // void executeFollowWall(double dt);
   void executeAvoidAndGotoGoal(double dt);

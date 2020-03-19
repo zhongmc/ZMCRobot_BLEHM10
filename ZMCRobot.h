@@ -125,4 +125,9 @@ const char *floatToStr(int idx, char width, unsigned char prec, double val);
 Position getRobotPosition();
 double getYaw();
 
+void showBatVoltage(float v);
+void showBleState(int state ); //0 无设备, 1 有设备，未连接, 2  有设备，已连接;
+
+
+
 #endif
