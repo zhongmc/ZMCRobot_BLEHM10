@@ -13,7 +13,6 @@ VelocityController::VelocityController()
   count = 0;
   curW = 0;
   keepTheta = false;
-  m_robot_w = 0;
 }
 
 void VelocityController::reset()
@@ -32,47 +31,39 @@ void VelocityController::reset(Robot *robot)
   mTheta = robot->theta;
 }
 
-void VelocityController::setGoal(double v, double w)
+void VelocityController::setGoal(double v, double w, double curTheta )
 {
 
   if (w == 0 && curW != 0) //remain the current theta; 加速过程中会有晃动；保留初始角度？
   {
     keepTheta = true;
-    keepThetaTimer = (1 + 2 * abs(m_robot_w)) * 30;
-    log("kT %d,%s\n", keepThetaTimer, floatToStr(0, m_robot_w));
+    keepThetaTimer = (1 + 2 * abs(m_robot_w)) * 60;
     thetaPrevMillis = millis();
-    //    mTheta = robot.theta; //转弯结束，保留当前角度
+    mTheta = curTheta; //转弯结束，保留当前角度
   }
   curW = w;
   mW = w;
 
   //reset the controller ???
-  lastErrorIntegration = 0;
-  lastError = 0;
+  // lastErrorIntegration = 0;
+  // lastError = 0;
+
   m_v = v;
   m_w = w;
 
-    log("SG %s,%s: %s,%s\n",
-        floatToStr(0, v),
-        floatToStr(1, w),
-        floatToStr(2, m_v),
-        floatToStr(3, m_w));
-}
-
-//depricated
-void VelocityController::setGoal(double v, double theta, double curTheta)
-{
-
-  mTheta = curTheta;
-  mW = theta;
-
-  if (mW == 0)
+  if( m_w != 0  && m_v != 0 ) //转弯，控制速度？？
   {
-    Serial.println("zero mw!");
-    lastErrorIntegration = 0;
-    lastError = 0;
+    m_v = (0.1-abs(v))/3.14 * abs(m_w) + abs(v);
+    if( v < 0 )
+      m_v = -m_v;
   }
+    // log("SG %s,%s: %s,%s\n",
+    //     floatToStr(0, v),
+    //     floatToStr(1, w),
+    //     floatToStr(2, m_v),
+    //     floatToStr(3, m_w));
 }
+
 
 void VelocityController::execute(Robot *robot, Input *input, Output *output, double dt)
 {
@@ -80,25 +71,10 @@ void VelocityController::execute(Robot *robot, Input *input, Output *output, dou
 
   m_robot_w = robot->w;
 
-  if (mW != 0) //转弯，控制角速度？
+  if (mW != 0) //转弯，自由控制
   {
-
-    output->v = m_v; // input->v / (1 + abs(robot->w) / 3); //转弯，控制速度
-    output->w = m_w; //2 * mW;
-
-    // output->v = input->v;
-
-    // e = mW - robot->w;
-
-    // e_I = lastErrorIntegration + e * dt;
-    // e_D = (e - lastError) / dt;
-    // w = Kp * e + Kd * e_D + Ki * e_I;
-
-    // lastErrorIntegration = e_I;
-    // if (abs(lastErrorIntegration) > 10)
-    //   lastErrorIntegration = 0;
-
-    // output->w = w;
+    output->v = m_v;
+    output->w = m_w; 
     return;
   }
 
@@ -114,6 +90,10 @@ void VelocityController::execute(Robot *robot, Input *input, Output *output, dou
       e = 0;
       output->v = input->v;
       output->w = 0;
+  //reset the controller ???
+      lastErrorIntegration = 0;
+      lastError = 0;
+
       return;
     }
   }
@@ -122,61 +102,14 @@ void VelocityController::execute(Robot *robot, Input *input, Output *output, dou
   {
     okToKeep = false;
     mTheta = robot->theta; // keep current direction
-    lastErrorIntegration = 0;
-    lastError = 0;
   }
-
-  e = mTheta - robot->theta;
-  e = atan2(sin(e), cos(e));
-
-  double p = Kp;
-  double ae = abs(e);
-  if (ae > 1)
-  {
-    p = p / 2;
-    e_I = 0;
-  }
-  else
-  {
-    e_I = lastErrorIntegration + e * dt;
-  }
-  if (ae > 2)
-    p = p / 3;
-
-  e_D = (e - lastError) / dt;
-  w = p * e + Ki * e_I + Kd * e_D;
-  lastErrorIntegration = e_I;
-
-  // if (abs(lastErrorIntegration) > 30)
-  //   lastErrorIntegration = 0;
-
-  // count++;
-  // if (count > 2)
-  // {
-  //   // Serial.print(input->v);
-  //   // Serial.print(", ");
-  //   Serial.print(e);
-  //   Serial.print(", ");
-  //   Serial.println(w);
-  //   count = 0;
-  // }
-
-  // Serial.print(mTheta);
-  // Serial.print(",");
-  // Serial.print(robot->theta);
-  // Serial.print(",");
-  // Serial.print(e);
-  // Serial.print(",");
-  // Serial.println(w);
-
-#ifdef _DEBUG_
-  Serial.print(e);
-  Serial.print(",");
-  Serial.print(w);
-  Serial.print(",");
-#endif
 
   output->v = input->v;
-  output->w = w;
+  e = mTheta - robot->theta;
+  e = atan2(sin(e), cos(e));
+  e_D = (e - lastError) / dt;
+  e_I = lastErrorIntegration + e * dt;
+  output->w = Kp * e + Ki * e_I + Kd * e_D;
+  lastErrorIntegration = e_I;
   lastError = e;
 }

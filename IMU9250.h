@@ -6,6 +6,7 @@
 
 #include <Arduino.h>
 #include "MadgwickAHRS.h"
+
 #include "MPU9250.h"
 
 
@@ -41,10 +42,13 @@ public:
   void debugOut();
 
   void loadCalibrationFromEEProm();
-  void saveCalibrationToEEProm();
-  
+  void saveCalibrationToEEProm();  
   //校准 IMU
   void calibrateIMU();
+  //选择滤波器
+  void setFilter(FILTER iFilter );
+  void setUseMag( bool val );
+
 
   int16_t *getRawData()
   {

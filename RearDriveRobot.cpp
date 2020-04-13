@@ -98,7 +98,7 @@ RearDriveRobot::RearDriveRobot()
   // mPIDSettings.kd = 0.0; //0.02; //0.2
 
   //1:90
-  mSettings.kp = 6;    // 2; //25;  //20 0.5 2; 2019-01-26:   5, 0.02, 0.9; 5, 0.05, 1.2; 5,0.08,1.2 2019-02-09 5, 0.01, 0.2
+  mSettings.kp = 5;    // 2; //25;  //20 0.5 2; 2019-01-26:   5, 0.02, 0.9; 5, 0.05, 1.2; 5,0.08,1.2 2019-02-09 5, 0.01, 0.2
   mSettings.ki = 0.0;  //.4; // 0.01;
   mSettings.kd = 0; //0.02; //0.2
 
@@ -110,9 +110,17 @@ RearDriveRobot::RearDriveRobot()
   mSettings.tki = 0.2;
   mSettings.tkd = 0;
 
-  mSettings.dkp = 0.8; 
-  mSettings.dki = 0.6;
-  mSettings.dkd = 0.003;
+//50ms sample time param
+  // mSettings.dkp = 0.8; 
+  // mSettings.dki = 0.6;
+  // mSettings.dkd = 0.003;
+
+
+//30ms sample time param 0.18 0.4 0.003
+  mSettings.dkp = 0.3; //0.38; 
+  mSettings.dki = 0.8; //0.26;
+  mSettings.dkd = 0; //0.003;
+
 
   //   bool useIMU, irFilter;
   // double imuAlpha, irAlpha;
@@ -121,7 +129,7 @@ RearDriveRobot::RearDriveRobot()
   mSettings.imuAlpha = 0.7;
   mSettings.irAlpha = 0.5;
 
-  mSettings.sampleTime = 50;
+  mSettings.sampleTime = 30; //50;
 }
 
 PWM_OUT RearDriveRobot::getPWMOut(double v, double w)

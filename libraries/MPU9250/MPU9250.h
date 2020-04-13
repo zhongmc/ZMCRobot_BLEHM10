@@ -9,7 +9,8 @@
 #endif
 
 #include "MPU9250/MPU9250RegisterMap.h"
-#include "MPU9250/QuaternionFilter.h"
+// #include "MPU9250/QuaternionFilter.h"
+#include "MadgwickAHRS.h"
 
 
 enum class AFS { A2G, A4G, A8G, A16G };
@@ -35,6 +36,7 @@ class MPU9250_
 
     float magCalibration[3] = {0, 0, 0}; // factory mag calibration
 
+    bool newMagData = false;
 
 //company
     // float accelBias[3] = {0.02240, 0.00232, 0.01752}; // bias corrections
@@ -61,13 +63,22 @@ class MPU9250_
     float a12, a22, a31, a32, a33;            // rotation matrix coefficients for Euler angles and gravity components
     float lin_ax, lin_ay, lin_az;             // linear acceleration (acceleration with gravity component subtracted)
 
-    QuaternionFilter qFilter;
+    // QuaternionFilter qFilter;
+
+    Madgwick filter;
+
+    uint32_t lastUpdate = 0; // used to calculate integration interval
+
 
     float magnetic_declination = -7.51; // Japan, 24th June
 
     int16_t raw_data[9];  //keep the raw accel gyro mag
 
 public:
+
+    //是否使用 磁场数据，求解四元数
+    bool useMag = false;
+
     MPU9250_() : aRes(getAres()), gRes(getGres()), mRes(getMres()) {}
 
     bool setup(WireType& w = Wire)
@@ -156,7 +167,6 @@ public:
         {  // On interrupt, check if data ready interrupt
             updateAccelGyro();
             updateMag(); // TODO: set to 30fps?
-        }
 
         // Madgwick function needs to be fed North, East, and Down direction like
         // (AN, AE, AD, GN, GE, GD, MN, ME, MD)
@@ -171,11 +181,40 @@ public:
         // acc[mg], gyro[deg/s], mag [mG]
         // gyro will be convert from [deg/s] to [rad/s] inside of this function
         // qFilter.update(-a[0], a[1], a[2], g[0], -g[1], -g[2], m[1], -m[0], m[2], q);
-        
-        qFilter.update(a[0], a[1], a[2], g[0], g[1], g[2], m[1], m[0], -m[2], q);
-        // qFilter.MahonyQuaternionUpdate(a[0], a[1], a[2], g[0], g[1], g[2], m[1], m[0], -m[2], q);
-        updateRPY();
 
+          // qFilter.MahonyQuaternionUpdate(a[0], a[1], a[2], g[0], g[1], g[2], m[1], m[0], -m[2], q);
+            // qFilter.update(a[0], a[1], a[2], g[0], g[1], g[2], m[1], m[0], -m[2], q);
+            // updateRPY();
+
+            uint32_t now  = micros();
+            if( lastUpdate == 0 )
+            {
+                lastUpdate = now;
+                return;
+            }
+
+            uint32_t process_time = now - lastUpdate;
+            lastUpdate = now;
+            filter.invSampleFreq = (float)process_time/1000000.0f;
+            if( useMag )
+            {
+                filter.update(a[0], a[1], a[2], g[0], g[1], g[2], m[1], m[0], -m[2]);
+                q[0] = filter.q0;
+                q[1] = filter.q1;
+                q[2] = filter.q2;
+                q[3] = filter.q3;
+                updateRPY();
+            }
+            else
+            {
+                filter.updateIMU(a[0], a[1], a[2], g[0], g[1], g[2]);
+                q[0] = filter.q0;
+                q[1] = filter.q1;
+                q[2] = filter.q2;
+                q[3] = filter.q3;
+            }
+
+        }
         // if (!b_ahrs)
         // {
         //     tempCount = readTempData();  // Read the adc values
@@ -391,34 +430,59 @@ private:
     void updateMag()
     {
         int16_t magCount[3] = {0, 0, 0};    // Stores the 16-bit signed magnetometer sensor output
+
+        newMagData = false;
         readMagData(magCount);  // Read the x/y/z adc values
         // getMres();
-
+        if( newMagData )
+        {
+            newMagData = false;
         // Calculate the magnetometer values in milliGauss
-        // Include factory calibration per data sheet and user environmental corrections
-        m[0] = (float)(magCount[0] * mRes * magCalibration[0] - magBias[0]) * magScale[0];  // get actual magnetometer value, this depends on scale being set
-        m[1] = (float)(magCount[1] * mRes * magCalibration[1] - magBias[1]) * magScale[1];
-        m[2] = (float)(magCount[2] * mRes * magCalibration[2] - magBias[2]) * magScale[2];
+            // Include factory calibration per data sheet and user environmental corrections
+            m[0] = (float)(magCount[0] * mRes * magCalibration[0] - magBias[0]) * magScale[0];  // get actual magnetometer value, this depends on scale being set
+            m[1] = (float)(magCount[1] * mRes * magCalibration[1] - magBias[1]) * magScale[1];
+            m[2] = (float)(magCount[2] * mRes * magCalibration[2] - magBias[2]) * magScale[2];
 
-        raw_data[6] = magCount[0];
-        raw_data[7] = magCount[1];
-        raw_data[8] = magCount[2];
-
+            raw_data[6] = magCount[0];
+            raw_data[7] = magCount[1];
+            raw_data[8] = magCount[2];
+        }
     }
+
+    // void readMagData(int16_t * destination)
+    // {
+    //     uint8_t rawData[7];  // x/y/z gyro register data, ST2 register stored here, must read ST2 at end of data acquisition
+    //     if(readByte(AK8963_ADDRESS, AK8963_ST1) & 0x01) { // wait for magnetometer data ready bit to be set
+    //         readBytes(AK8963_ADDRESS, AK8963_XOUT_L, 7, &rawData[0]);  // Read the six raw data and ST2 registers sequentially into data array
+    //         uint8_t c = rawData[6]; // End data read by reading ST2 register
+    //         if(!(c & 0x08)) { // Check if magnetic sensor overflow set, if not then report data
+    //             destination[0] = ((int16_t)rawData[1] << 8) | rawData[0];  // Turn the MSB and LSB into a signed 16-bit value
+    //             destination[1] = ((int16_t)rawData[3] << 8) | rawData[2];  // Data stored as little Endian
+    //             destination[2] = ((int16_t)rawData[5] << 8) | rawData[4];
+    //         }
+    //     }
+    // }
+
 
     void readMagData(int16_t * destination)
     {
         uint8_t rawData[7];  // x/y/z gyro register data, ST2 register stored here, must read ST2 at end of data acquisition
-        if(readByte(AK8963_ADDRESS, AK8963_ST1) & 0x01) { // wait for magnetometer data ready bit to be set
+        newMagData = (readByte(AK8963_ADDRESS, AK8963_ST1) & 0x01);
+        if(newMagData == true) { // wait for magnetometer data ready bit to be set
             readBytes(AK8963_ADDRESS, AK8963_XOUT_L, 7, &rawData[0]);  // Read the six raw data and ST2 registers sequentially into data array
             uint8_t c = rawData[6]; // End data read by reading ST2 register
-            if(!(c & 0x08)) { // Check if magnetic sensor overflow set, if not then report data
-                destination[0] = ((int16_t)rawData[1] << 8) | rawData[0];  // Turn the MSB and LSB into a signed 16-bit value
-                destination[1] = ((int16_t)rawData[3] << 8) | rawData[2];  // Data stored as little Endian
-                destination[2] = ((int16_t)rawData[5] << 8) | rawData[4];
+                if(!(c & 0x08)) { // Check if magnetic sensor overflow set, if not then report data
+                    destination[0] = ((int16_t)rawData[1] << 8) | rawData[0] ;  // Turn the MSB and LSB into a signed 16-bit value
+                    destination[1] = ((int16_t)rawData[3] << 8) | rawData[2] ;  // Data stored as little Endian
+                    destination[2] = ((int16_t)rawData[5] << 8) | rawData[4] ; 
             }
+            else
+            {
+                newMagData = false;
+            }
+            
         }
-    }
+    }    
 
     void updateRPY()
     {
@@ -608,7 +672,7 @@ private:
     void calibrateMPU9250(float * dest1, float * dest2)
     {
         uint8_t data[12]; // data array to hold accelerometer and gyro x, y, z, data
-        uint16_t ii, packet_count, fifo_count;
+        uint16_t ii, packet_countet, fifo_count;
         int32_t gyro_bias[3]  = {0, 0, 0}, accel_bias[3] = {0, 0, 0};
 
         // reset device

@@ -23,14 +23,16 @@ class Supervisor
 {
 public:
   Supervisor();
+  
   void execute(long left_ticks, long right_ticks, double yaw, double dt);
+  void update(long left_ticks, long right_ticks, double dt);
 
   // void executeFollowWall(double dt);
   void executeAvoidAndGotoGoal(double dt);
 
   void reset(long leftTicks, long rightTicks);
   void resetRobot();
-  void setGoal(double x, double y, int theta, double v);
+  void setGoal(double x, double y, double targetTheta, double v);
 
   void setHaveIRSensor(int idx, byte val);
 
@@ -40,15 +42,15 @@ public:
 
   void setUseIMU(bool beUseIMU, double _alpha)
   {
-    mUseIMU = beUseIMU;
-    alpha = _alpha;
+    // mUseIMU = beUseIMU;
+    // alpha = _alpha;
     robot.setUseIMU(beUseIMU, _alpha);
   };
 
-  bool isUseIMU()
-  {
-    return mUseIMU;
-  }
+  // bool isUseIMU()
+  // {
+  //   return mUseIMU;
+  // }
 
 
 
@@ -142,8 +144,8 @@ private:
   bool unsafe;
   bool danger;
 
-  bool mUseIMU;
-  double alpha;
+  // bool mUseIMU;
+  // double alpha;
 
 
   int m_state;

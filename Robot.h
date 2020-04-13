@@ -126,10 +126,12 @@ public:
 
   double getObstacleDistance();
   void updateState(long left_ticks, long right_ticks, double dt);
-  void updateState(long left_ticks, long right_ticks, double yaw, double alpha, double dt);
+  void updateState(long left_ticks, long right_ticks, double yaw, double dt);
 
   void reset(long left_ticks, long right_ticks);
   Vel uni_to_diff(double v, double w);
+  Vel uni_to_diff_v(double v, double w );
+
   Output diff_to_uni(double vel_l, double vel_r);
   IRSensor **getIRSensors();
 

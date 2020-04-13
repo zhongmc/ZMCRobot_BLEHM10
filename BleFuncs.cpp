@@ -98,18 +98,26 @@ void processBleCommandPackage(byte *data)
   else if (cmd[0] == 'G' && cmd[1] == 'G') // Go To Goal: x, y, theta
   {
     double x, y, v;
-    int theta;
+    int angle;
     x = byteToFloat((byte *)(data + 2), 100);
     y = byteToFloat((byte *)(data + 4), 100);
-    theta = byteToInt((byte *)(data + 6));
+    angle = byteToInt((byte *)(data + 6));  //度为单位
     v = byteToFloat((byte *)(data + 8), 100);
+
+    double theta;
+    if (angle <= 180)
+      theta = (angle * PI) / 180;
+    else {
+      angle = angle - 360;
+      theta = (angle * PI) / 180;
+    }
 
     setGoal(x, y, theta, v);
 
     log("GTG:%s,%s,%d,%s\n",
         floatToStr(0, x),
         floatToStr(1, y),
-        theta,
+        angle,
         floatToStr(2, v));
 
     // Serial.print("GTG:");
@@ -167,17 +175,17 @@ void processBleCommandPackage(byte *data)
 
   }
 
-  else if (cmd[0]  == 'T' && cmd[1] == 'L') //turn around left/ right(-pwm) test
+  else if (cmd[0]  == 'T' && cmd[1] == 'L') //turn around left/ right(-pwm) test tl 0/1/2, 250; tl dir, angle;
   {
-    int pwm = atoi(data + 2);
-    int stopCount = 2000;
+    int dir = atoi(data + 2);
+    int angle = 360;
     char *buf = strchr(data, ',');
     if (buf != NULL)
-      stopCount = atof(buf + 1);
+      angle = atof(buf + 1);
 
-    logToBle("tl:%d,%d..", pwm, stopCount);
+    logToBle("tl:%d,%d..", dir, angle);
 
-    turnAround(pwm, stopCount);
+    turnAround(dir, angle);
   }
   else if( cmd[0] == 'C' && cmd[1] == 'I')
   {
@@ -272,14 +280,15 @@ void processBleCommandPackage(byte *data)
     float alpha = 0.5;
     if (val == true)
       alpha = atof((char *)(data + 4));
-    log("use IMU:%d,%s\n", val, floatToStr(0, alpha));
-    // driveSupervisor.mUseIMU = val;
-    // driveSupervisor.alpha = alpha;
-    mUseIMU = val;
-    driveSupervisor.setUseIMU(val, alpha);
-    supervisor.setUseIMU(val, alpha);
+    setUseIMU(val, alpha );
   }
-
+  else if( cmd[0] == 'M' && cmd[1] == 'F')
+  {
+    int iFilter = *(data + 2 ) - '0';
+    bool withMag = *(data + 4) - '0';
+    setIMUFilter( iFilter, withMag );
+   
+  }
   else if (cmd[0] == 'I' && cmd[1] == 'F') // set ir filter IF0/1,0.6;
   {
     bool val = *(data + 2) - '0';
@@ -485,7 +494,10 @@ void motorSpeedBle(int pwml, int pwmr)
   lt = millis() - lt;
   c1 = count1 - c1;
   c2 = count2 - c2;
-  logToBle("%d,%dl,%dl\n", pwml, c1, c2);
+  int i1, i2;
+  i1 =c1;
+  i2 = c2;
+  logToBle("%d,%d,%d\n", pwml, i1, i2);
 }
 
 

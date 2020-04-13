@@ -14,9 +14,8 @@ public:
 
   void reset(Robot *robot);
   void execute(Robot *robot, Input *input, Output *output, double dt);
-  void setGoal(double v, double theta, double curTheta);
-
-  void setGoal(double v, double w);
+  
+  void setGoal(double v, double w, double curTheta );
 
   void PrintInfo()
   {

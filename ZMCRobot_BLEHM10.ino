@@ -1,41 +1,25 @@
 #include "ZMCRobot.h"
 #include <Arduino.h>
 
-// #include "CurieTimerOne.h"
-// #include <CurieBLE.h>
-#include "IRSensor.h"
 #include "Robot.h"
-
 
 #include "Supervisor.h"
 #include "DriveSupervisor.h"
 #include "BlinkLed.h"
-#include "LiquidCrystal_I2C.h"
 
-//#include "BlinkMatrixLed.h"
 #include "IMU9250.h"
 #include "IMU.h"
 
 #include "pitches.h"
-
 
 //#include "MyKey.h"
 //#include "MyMenu.h"
 
 #define VOLT_IN_PIN A0
 #define ULTRASONIC_ECHO 18  //2,3,18,19(serial 1), 20, 21(I2C) external interrupt
-#define ULTRASONIC_TRIG 10
+#define ULTRASONIC_TRIG 12
 
-
-#define START_KEY 0
-#define LEFT_KEY 1
-#define RIGHT_KEY 2
-#define RET_KEY 3
-
-#define START_KEY_PIN 11
-#define LEFT_KEY_PIN 10
-#define RIGHT_KEY_PIN 9
-#define RET_KEY_PIN 8
+#define MELODY_PIN 48
 
 byte currentState = STATE_IDLE;
 
@@ -50,11 +34,11 @@ byte currentState = STATE_IDLE;
 
 bool mIMUDataOk = false;
 
+// RearDriveRobot robot();
 Supervisor supervisor;
 DriveSupervisor driveSupervisor;
-BlinkLed blinkLed;
 
-LiquidCrystal_I2C lcd(0x27, 16, 2);
+BlinkLed blinkLed;
 
 //BlinkMatrixLed blinkLed;
 bool bExecDrive, bExecGTG;
@@ -84,23 +68,17 @@ extern int comDataCount;
 //menu_item menuItems[17];
 //MyMenu menu(&menuItems[0]);
 
-unsigned long millisPrevKey, millisPrev, loopExecuteTime, imuMillisPrev;
+unsigned long loopExecuteTime = 0;
 int imuCycle;
-int sampleRate = 10;  // sampleTime = 10 * sampleRate (ms);
-
+int sampleTime = 30; // (sample time 30 ms);
+unsigned long prevSampleMillis, prevBattMillis, prevImuMillis;
 //bool backLightOn = false;
-// LiquidCrystal_I2C lcd(0x27, 16, 2);
-
-//  GP2Y0A41 = 0,     //4-30cm
-//  GP2Y0A21 = 1     //10-80cm
-IRSensor irSensor(GP2Y0A41);
 double irDistance[5];
 Position pos;
 
 double batteryVoltage;  // Measured battery level
-uint8_t batteryCounter, batteryLowCount; // Counter used to check if it should check the battery level
+uint8_t batteryLowCount; // Counter used to check if it should check the battery level
 
-uint8_t driverCounter; 
 
 
 void setup()
@@ -110,91 +88,13 @@ void setup()
   Wire.begin(); // set master mode, default on SDA/SCL for Ladybug   
   Wire.setClock(400000); // I2C frequency at 400 kHz
   delay(100);  
-
-  lcd.init(); // initialize the lcd
-  lcd.backlight(); //Open the backlight
-  // lcd.noBacklight();
-  lcd.setCursor(0,0);
-  lcd.print("===ZMC Robot==="); // Print a message to the LCD.
-  lcd.setCursor(0,1);
-  lcd.print(" Loading......"); // Print a message to the LCD.
-
-uint8_t ble1[8] = {0x14,0x54,0x36,0xff,0xff,0x36,0x54,0x14};
-uint8_t ble[8] = {0x14,0x54,0x36,0x18,0x18,0x36,0x54,0x14};
-// uint8_t bat1[8]  = {0x0,0x0,0x0,0x0,0x0,0x0,0x77};
-// uint8_t bat2[8] = {0x0,0x0,0x0,0x0,0x0,0x77,0x77};
-uint8_t bat3[8] = {0x0,0x0,0x0,0x0,0x77,0x77,0x77};
-uint8_t bat4[8] = {0x0,0x0,0x0,0x77,0x77,0x77,0x77};
-uint8_t bat5[8] = {0x0,0x0,0x77,0x77,0x77,0x77,0x77};
-uint8_t bat6[8] = {0x0,0x77,0x77,0x77,0x77,0x77,0x77};
-uint8_t bat7[8] = {0x77,0x77,0x77,0x77,0x77,0x77,0x77};
-
- lcd.createChar(0, bat3);
- lcd.createChar(1, bat4);
- lcd.createChar(2, bat5);
- lcd.createChar(3, bat6);
- lcd.createChar(4, bat7);
-
- lcd.createChar(5, ble1);   //有设备，未连接
- lcd.createChar(6, ble);  //有设备，已连接
-
-//  lcd.createChar(7, ble2);
- 
- 
   Serial.begin(115200);
   delay(100);
-
-  /*
-  Serial.println("Initialze key...");
-  myKey.addKey(RET_KEY, RET_KEY_PIN);
-  myKey.addKey(RIGHT_KEY, RIGHT_KEY_PIN);
-  myKey.addKey(LEFT_KEY, LEFT_KEY_PIN);
-  myKey.addKey(START_KEY, START_KEY_PIN);
-
-
-  myKey.initKey();
-*/
-  // // start the IMU and filter
-  // CurieIMU.begin();
-  // CurieIMU.setGyroRate(GYRO_RATE);
-  // CurieIMU.setAccelerometerRate(GYRO_RATE);
-  // // Set the accelerometer range to 2G
-  // CurieIMU.setAccelerometerRange(2);
-  // // Set the gyroscope range to 250 degrees/second
-  // CurieIMU.setGyroRange(250);
-
-  // filter.begin(GYRO_RATE);
-
-  lcd.setCursor(0,1);
-  lcd.print(" init motor..."); // Print a message to the LCD.
-
   initMotor();
-
-  // initialize variables to pace updates to correct rate
-  //  microsPerReading = 1000000 / GYRO_RATE;  //25
-  //  microsPrevious = micros();
-
-  lcd.setCursor(0,1);
-  lcd.print(" init BLE..."); // Print a message to the LCD.
-
   initBluetooth();
-  //  Serial.println(F("Initialze MENU..."));
-  //
-  //void MyMenu::setKeyId(byte stKey, byte rtKey, byte lKey, byte rKey)
-  //  menu.setKeyId(START_KEY, RET_KEY,  LEFT_KEY, RIGHT_KEY);
-  //  initMenu();
-
-  //  const int oneSecInUsec = 1000000;   // A second in mirco second unit.
-  // time = oneSecInUsec / 100; // time is used to toggle the LED is divided by i
-  //  CurieTimerOne.start(oneSecInUsec / GYRO_RATE, &timedBlinkIsr);  // set timer and callback
-
-  //  Serial.println(sizeof(long));
-  lcd.setCursor(0,1);
-  lcd.print(" init IMU..."); // Print a message to the LCD.
 
   mIMU.init( 10 );  //gyroRate (sample frenquence)
-
-  imuMillisPrev = millis();
+  prevImuMillis = millis();
 
   pinMode(13, OUTPUT);
 
@@ -213,37 +113,16 @@ uint8_t bat7[8] = {0x77,0x77,0x77,0x77,0x77,0x77,0x77};
   pinMode(ULTRASONIC_TRIG, OUTPUT);
   digitalWrite(ULTRASONIC_TRIG, LOW);
 
-
   waitForEcho = false;
   lastTrigTimer = 0;
   // ultr sound echo intterupt
   attachInterrupt(digitalPinToInterrupt(ULTRASONIC_ECHO), UltrasonicEcho, CHANGE);
 
-  // SETTINGS mSettings;
-  // mSettings.sType = 0;
-
-  // mSettings.sType = 0;
-  // mSettings.kp = 5;
-  // mSettings.ki = 0.01;
-  // mSettings.kd = 0.05;
-
-  // mSettings.max_rpm = 200;
-  // mSettings.min_rpm = 40; //45
-
-  // mSettings.atObstacle = 0.25; //0.15
-  // mSettings.unsafe = 0.1;
-  // mSettings.dfw = 0.2;      //0.25
-  // mSettings.velocity = 0.2; //0.3
-
-  // supervisor.updateSettings(mSettings);
-  // driveSupervisor.updateSettings(mSettings);
-
   SETTINGS sett = supervisor.getSettings();
+  sampleTime = sett.sampleTime;
 
-  sampleRate = sett.sampleTime/10;
-
-  Serial.print("SampleRate:");
-  Serial.println( sampleRate );
+  Serial.print("Sample time:");
+  Serial.println( sampleTime );
   
   supervisor.init();
   driveSupervisor.init();
@@ -255,17 +134,18 @@ uint8_t bat7[8] = {0x77,0x77,0x77,0x77,0x77,0x77,0x77};
   blinkLed.normalBlink();
 
   Serial.println("READY!");
+
   interrupts();
-  
+ 
   // bCount = 0;
-      int melody[] = {
+  int melody[] = {
         NOTE_C4, NOTE_G3,NOTE_G3, NOTE_A3, NOTE_G3,0, NOTE_B3, NOTE_C4
     };
     int noteDurations[] = {
     4, 8, 8, 4,4,4,4,4
     };
 
-  playMelody(melody, noteDurations, 8);
+  playMelody(MELODY_PIN, melody, noteDurations, 8);
 
   #if OP_VOLTAGE == VOLT33
     Serial.println("Work at 3.3V...");
@@ -273,13 +153,8 @@ uint8_t bat7[8] = {0x77,0x77,0x77,0x77,0x77,0x77,0x77};
     Serial.println("Work at 5V...");
   #endif
 
-  lcd.setCursor(0,1);
-  lcd.print(" ready."); // Print a message to the LCD.
-
-
-  millisPrevKey = millis();
-  millisPrev = millisPrevKey; //millis();
-  driverCounter = 0;
+  prevSampleMillis = millis();
+  prevBattMillis = prevSampleMillis; //millis();
   batteryLowCount = 0;
 }
 
@@ -292,13 +167,13 @@ void loop()
   processSetingsRequire();
   //ultrasonic process
   processUltrasonic();
-
   unsigned long millisNow;
+  millisNow = millis();
+
   if( mIMUDataOk )
   {
-    millisNow = millis();
-    imuCycle = millisNow - imuMillisPrev;
-    imuMillisPrev = millisNow;
+    imuCycle = millisNow - prevImuMillis;
+    prevImuMillis = millisNow;
     
     mIMUDataOk = false;
 
@@ -316,13 +191,6 @@ void loop()
           }
           Serial.println(rawData[8]);
 
-          // log("RP%d,%d,%d,%d,%d\n",
-          //       (int)(10000 * pos.x),
-          //       (int)(10000 * pos.y),
-          //       (int)(10000 * pos.theta),
-          //       (int)(10000 * pos.w),
-          //       (int)(10000 * pos.v));
-
           log("IM%d,%d,%d,%d\n",
               (int)(1000* mIMU.getQuaternion(0)),
               (int)(1000* mIMU.getQuaternion(1)),
@@ -334,34 +202,15 @@ void loop()
 
   }
 
-
-  millisNow = millis();
-  if (millisNow - millisPrev >= 10)
+  if ( (millisNow - prevSampleMillis) >= sampleTime ) 
   {
-     millisPrev = millisNow;
-    //  mIMU.readIMU((millisNow - millisPrev)/1000.0);           //1/GYRO_RATE
-    //  mIMU.calculateAttitute(  (millisNow - millisPrev)/1000.0); //1/GYRO_RATE
-    //   if( mROSConnected )
-    //   {
-    //       int16_t *rawData = mIMU.getRawData();
-    //       Serial.print("RD");
-    //       for( int i=0; i<8; i++)
-    //       {
-    //         Serial.print(rawData[i]);
-    //         Serial.print(',');
-    //       }
-    //       Serial.println(rawData[8]);
-    //   }
-    driverCounter++;
-    if( driverCounter >= sampleRate )
-    {
-      driverCounter = 0;
+      double dt = (double)(millisNow -  prevSampleMillis )/1000.0;
+       prevSampleMillis = millisNow;
       double yaw = (PI * mIMU.getYaw()) / 180.0;
-
       if (currentState == STATE_GOTOGOAL)
       {
         //report states
-        supervisor.execute(readLeftEncoder(), readRightEncoder(), yaw,  0.01*sampleRate);
+        supervisor.execute(readLeftEncoder(), readRightEncoder(), yaw, dt);
         if( supervisor.mSimulateMode )
         {
           delay(3);
@@ -373,7 +222,7 @@ void loop()
       }
       else if (currentState == STATE_DRIVE)
       {
-        driveSupervisor.execute(readLeftEncoder(), readRightEncoder(), yaw, 0.01*sampleRate); //1/20
+        driveSupervisor.execute(readLeftEncoder(), readRightEncoder(), yaw, dt); //1/20
         driveSupervisor.getIRDistances(irDistance);
         pos = driveSupervisor.getRobotPosition();
         // sendRobotStateValue(8, pos, irDistance, batteryVoltage);
@@ -389,29 +238,23 @@ void loop()
         }
         // sendRobotStateValue(8, pos, irDistance, batteryVoltage);
       }
-
 //report Robot States
         sendRobotStateValue(8, pos, irDistance, batteryVoltage);
 
-        showRobotState();
-
         if( mROSConnected )
         {
-
           log("RP%d,%d,%d,%d,%d\n",
                 (int)(10000 * pos.x),
                 (int)(10000 * pos.y),
                 (int)(10000 * pos.theta),
                 (int)(10000 * pos.w),
                 (int)(10000 * pos.v));
-
           log("IR%d,%d,%d,%d,%d\n",
                 (int)(100 * irDistance[0]),
                 (int)(100 * irDistance[1]),
                 (int)(100 * irDistance[2]),
                 (int)(100 * irDistance[3]),
                 (int)(100 * irDistance[4]));
-
         //   log("IM%d,%d,%d,%d\n",
         //       (int)(1000* mIMU.getQuaternion(0)),
         //       (int)(1000* mIMU.getQuaternion(1)),
@@ -419,48 +262,47 @@ void loop()
         //       (int)(1000* mIMU.getQuaternion(3))
         //   );
         }
-                    
-      batteryCounter++;
-      if (batteryCounter >= 100/sampleRate )  // Measure battery every 1s
-      { 
-        batteryCounter = 0;
-        if (isBatteryLow())
-        {
-          batteryLowCount++;
-          if( doCheckBattleVoltage && batteryLowCount == 3)
-          {
-            Serial.print(batteryVoltage);
-            Serial.println(" Bat L...");
-
-            if (currentState != STATE_IDLE)
-            {
-              stopAndReset();
-              currentState = STATE_IDLE;
-
-                int melody[] = {
-                  NOTE_C4, NOTE_G3,NOTE_C4, NOTE_G3
-              };
-              int noteDurations[] = {
-              4, 8, 8, 4
-              };
-
-              playMelody(melody, noteDurations, 4);
-
-            }
-            blinkLed.slowBlink();
-          }
-        }
-        else
-        {
-          if( batteryLowCount != 0 )
-            Serial.println("Bat ok.");
-          batteryLowCount = 0;
-        }
-        
-      }
-    }
-    loopExecuteTime = millis() - millisNow;
+    long execTime =  millis() - millisNow;
+    if( execTime > loopExecuteTime)
+      loopExecuteTime = execTime;
   }
+
+  if (millisNow - prevBattMillis >= 1000 ) 
+  {
+    prevBattMillis =  millisNow;
+    if (isBatteryLow())
+    {
+       batteryLowCount++;
+       if( doCheckBattleVoltage && batteryLowCount == 3)
+       {
+          Serial.print(batteryVoltage);
+          Serial.println(" Bat L...");
+          if (currentState != STATE_IDLE)
+          {
+              StopMotor();
+               currentState = STATE_IDLE;
+              int melody[] = {
+               NOTE_C4, NOTE_G3,NOTE_C4, NOTE_G3
+              };
+            int noteDurations[] = {
+             4, 8, 8, 4
+             };
+
+            playMelody(MELODY_PIN, melody, noteDurations, 4);
+          }
+          blinkLed.slowBlink();
+        }
+     
+     }
+     else
+     {
+        if( batteryLowCount >= 3 )
+          Serial.println("Bat ok.");
+        batteryLowCount = 0;
+     }
+    
+  }
+
 }
 
 Position getRobotPosition()
@@ -481,7 +323,7 @@ double getYaw()
   return mIMU.getYaw();
 }
 
-void setGoal(double x, double y, int theta, double v)
+void setGoal(double x, double y, double theta, double v)
 {
   // count1 = 0;
   // count2 = 0;
@@ -587,27 +429,35 @@ void stopRobot()
 {
   blinkLed.normalBlink();
   // CurieTimerOne.kill();
+  StopMotor();
+  delay(100);
 
   if (currentState == STATE_DRIVE)
   {
+    driveSupervisor.update(readLeftEncoder(), readRightEncoder(), 0.03); //处理当前运动的惯性
     Position pos = driveSupervisor.getRobotPosition();
     supervisor.setRobotPosition(pos.x, pos.y, pos.theta);
   }
   else if (currentState == STATE_GOTOGOAL)
   {
+    supervisor.update(readLeftEncoder(), readRightEncoder(), 0.03);  //处理当前运动的惯性
     Position pos = supervisor.getRobotPosition();
     driveSupervisor.setRobotPosition(pos.x, pos.y, pos.theta);
   }
   currentState = STATE_IDLE;
-  stopAndReset();
 }
+
 
 void setDriveGoal(double v, double w)
 {
   if (currentState == STATE_DRIVE)
   {
     if (abs(v) < 0.001 && abs(w) < 0.001) //stop
+    {
+      v = 0;
+      w = 0;
       stopRobot();
+    }
     // else
     driveSupervisor.setGoal(v, w);
   }
@@ -617,6 +467,16 @@ void setDriveGoal(double v, double w)
     startDrive();
     driveSupervisor.setGoal(v, w);
   }
+}
+
+void turnAround(int dir, int angle )
+{
+  if( currentState != STATE_DRIVE )
+  {
+    stopRobot(); //stop currentState
+    startDrive();
+  }
+  driveSupervisor.turnAround(dir, angle );
 }
 
 bool isBatteryLow()
@@ -692,74 +552,52 @@ void UltrasonicEcho()
     echoTime = micros() - trigTime;
 }
 
-void playMelody(int melody[], int noteDurations[], int len )
+void playMelody(uint8_t pin, int melody[], int noteDurations[], int len )
 {
   
     for (int thisNote = 0; thisNote < len; thisNote++)
     {
       int noteDuration = 1000/noteDurations[thisNote];
-      tone(11, melody[thisNote],noteDuration);
+      tone(pin, melody[thisNote],noteDuration);
       int pauseBetweenNotes = noteDuration * 1.30;
       delay(pauseBetweenNotes);
-      noTone(11);
+      noTone(pin);
     }
 
 }
 
-void showBatVoltage(float v)
+void setIMUFilter(int iFilter, bool withMag )
 {
-    batteryVoltage;
-    float fullBat = 12.0, emptyBat = 10.8;
-
-    if( batteryVoltage < 9.0  && batteryVoltage > 6.0 )
-    {
-      fullBat = 8.0;
-      emptyBat = 7.2;
-
-    }
-    else
-    {
-      fullBat = 5.0;
-      emptyBat = 4.8;
-    }
-
-    int idx = (batteryVoltage - emptyBat ) * 4.0 / (fullBat - emptyBat );
-
-    if( idx > 4 )
-      idx = 4;
-    if( idx < 0 )
-      idx = 0;
-
-    lcd.setCursor(14, 0);
-    lcd.write( (byte) idx );
-    lcd.setCursor(9, 0);
-    lcd.print(batteryVoltage, 2);
-}
-
-
-void showBleState(int state )
-{
-  if( state == 0 )
+  switch( iFilter )
   {
-        lcd.setCursor(15, 0);
-        lcd.write(0x20);
+    case 0:
+      mIMU.setFilter( FILTER::MADGWICK);
+      Serial.println("set IMU Filter to: MADGWICK!");
+      if( withMag )
+        Serial.println(" with mag TRUE!");
+      else
+        Serial.println(" with mag FALSE!");
+          
+      break;
+    case 1:
+      mIMU.setFilter(FILTER::MADG );
+      Serial.println("set IMU Filter to: MADG!");
+      break;
+    case 2:
+      mIMU.setFilter(FILTER::MAHONY );
+      Serial.println("set IMU Filter to: MAHONY!");
+      break;
   }
-  else
-  {
-        lcd.setCursor(15, 0);
-        lcd.write( 4+state );
-  }
-  
+ 
+  mIMU.setUseMag( withMag );
 }
 
-void showRobotState()
+void setUseIMU(bool useImu,  float alpha )
 {
-        lcd.setCursor(0, 1);
-        lcd.print(pos.v, 2);
-        lcd.setCursor(6, 1);
-        int yaw = 0;
-        yaw = 180*(pos.w / PI);
-        if( yaw < 0)
-          yaw = 360 + yaw;
-        lcd.print( yaw );
+    mUseIMU = useImu;
+    driveSupervisor.setUseIMU(useImu, alpha);
+    supervisor.setUseIMU(useImu, alpha);
+    log("use IMU:%d,%s\n", useImu, floatToStr(0, alpha));
+
 }
+

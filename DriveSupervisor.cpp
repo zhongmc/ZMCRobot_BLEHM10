@@ -2,6 +2,8 @@
 #include "DriveSupervisor.h"
 #include "ZMCRobot.h"
 
+void logToBle(const char *format, ...);
+
 DriveSupervisor::DriveSupervisor()
 {
   d_unsafe = 0.11;
@@ -18,17 +20,19 @@ DriveSupervisor::DriveSupervisor()
 
   robot.setHaveIrSensor(0, true);
   robot.setHaveIrSensor(1, true);
-  robot.setHaveIrSensor(2, false);
+  robot.setHaveIrSensor(2, true);
   robot.setHaveIrSensor(3, true);
   robot.setHaveIrSensor(4, true);
 
   mSimulateMode = false;
   mIgnoreObstacle = false;
   danger = false;
-  mUseIMU = false;
-  alpha = 0.5;
+  // mUseIMU = false;
+  // alpha = 0.5;
   m_left_ticks = 0;
   m_right_ticks = 0;
+  inTurnState = false;
+
 }
 
 void DriveSupervisor::setIRFilter(bool open, float val)
@@ -79,7 +83,32 @@ void DriveSupervisor::setGoal(double v, double w)
 {
   m_input.v = v;
   m_input.w = w;
-  m_Controller.setGoal(v, w);
+  m_Controller.setGoal(v, w, robot.theta);
+  inTurnState = false;
+  m_state = s_DRIVE;
+}
+
+
+void DriveSupervisor::turnAround(int dir, int angle )
+{
+  turnDir = dir;
+  turnAngle = angle;
+  turnedTheta = 0;
+  inTurnState = true;
+  m_DifController.reset();
+  Serial.print("-turn around:");
+  Serial.print( dir );
+  Serial.print(", ");
+  Serial.println( angle );
+  Serial.print("-cur theta:");
+  Serial.print( robot.theta, 4);
+  Serial.print(":");
+  int curAngle = (int)(180.0*robot.theta / PI );
+  if( curAngle < 0 )
+    curAngle = 360 + curAngle;
+  Serial.println(curAngle);
+  m_state = S_TURN;
+
 }
 
 void DriveSupervisor::resetRobot()
@@ -87,7 +116,7 @@ void DriveSupervisor::resetRobot()
   robot.x = 0;
   robot.y = 0;
   robot.w = 0;
-  m_Controller.setGoal(m_input.v, 0, 0);
+  robot.theta = 0;
   m_Controller.reset(&robot);
   m_DifController.reset();
 }
@@ -110,20 +139,77 @@ void DriveSupervisor::reset(long leftTicks, long rightTicks)
     m_DifController.reset();
 }
 
+
+void DriveSupervisor::update(long left_ticks, long right_ticks, double dt)
+{
+  if (mSimulateMode)
+    robot.updateState((long)m_left_ticks, (long)m_right_ticks, dt);
+  else
+  {
+      robot.updateState(left_ticks, right_ticks, dt);
+  }
+}
+
 void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, double dt)
 {
 
   //  uint32_t timer = micros();
 
+  double theta = robot.theta;
+
   if (mSimulateMode)
     robot.updateState((long)m_left_ticks, (long)m_right_ticks, dt);
   else
   {
-      robot.updateState(left_ticks, right_ticks, yaw, alpha, dt);
+      robot.updateState(left_ticks, right_ticks, yaw, dt);
     // if (mUseIMU)
     //   robot.updateState(left_ticks, right_ticks, yaw, alpha, dt);
     // else
     //   robot.updateState(left_ticks, right_ticks, dt);
+  }
+  
+
+  if( inTurnState )
+  {
+    double delta_theta = robot.theta - theta;
+    delta_theta = atan2(sin(delta_theta), cos(delta_theta));
+    turnedTheta = turnedTheta + abs(delta_theta);
+    int turnedAngle = (int)(180.0*turnedTheta / PI );
+    if( abs(turnedAngle - turnAngle) < 9  || turnedAngle >= turnAngle )
+    {
+
+      inTurnState = false;
+      StopMotor();
+      m_state = S_STOP;
+      logToBle("ta1:%d\n", turnedAngle);
+      if( !mSimulateMode )
+      {
+        theta = robot.theta;
+        delay(300);
+        robot.updateState(readLeftEncoder(), readRightEncoder(), yaw, dt);
+        delta_theta = robot.theta - theta;
+        delta_theta = atan2(sin(delta_theta), cos(delta_theta));
+        turnedTheta = turnedTheta + abs(delta_theta);
+        turnedAngle = (int)(180.0*turnedTheta / PI );
+      }
+
+      logToBle("ta2:%d\n", turnedAngle);
+      logToBle("rt:%s\n", floatToStr(0, robot.theta ));
+
+      Serial.print("-turned:");
+      Serial.print( turnedTheta, 4);
+      Serial.print(":");
+      Serial.println(turnedAngle);
+
+      Serial.print("-turn end:");
+      Serial.print( robot.theta, 4);
+      Serial.print(":");
+      int curAngle = (int)(180.0*robot.theta / PI );
+      if( curAngle < 0 )
+        curAngle = 360 + curAngle;
+      Serial.println(curAngle);
+      return;
+    }
   }
 
   check_states();
@@ -137,11 +223,49 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
     return;
   }
 
-  m_Controller.execute(&robot, &m_input, &m_output, dt);
+  if( m_state == S_STOP )
+    return;
 
   Input in;
-  in.v = m_output.v;
-  in.w = m_output.w;
+
+  double w = 0.5;
+  if( inTurnState )
+  {
+    switch( turnDir )
+    {
+      case 0:
+        in.v = 0;
+        in.w = w;
+        break;
+      case 1:
+        in.v = 0.01;
+        in.w = w;
+        break;
+      case 2:
+        in.v = 0.01;
+        in.w = -w;
+        break;
+      case 3:
+        in.v = 0;
+        in.w = -w;
+        break;
+      case 4:
+        in.v = -0.01;
+        in.w = w;
+        break;
+      case 5:
+        in.v = -0.01;
+        in.w = -w;
+        break;
+    }
+
+  }
+  else
+  {
+      m_Controller.execute(&robot, &m_input, &m_output, dt);
+      in.v = m_output.v;
+      in.w = m_output.w;
+  }
 
   m_DifController.execute(&robot, &in, &m_output, dt);
   

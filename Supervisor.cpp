@@ -27,8 +27,8 @@ Supervisor::Supervisor()
   m_FollowWall.d_fw = settings.dfw;
   m_SlidingMode.d_fw = settings.dfw;
 
-  mUseIMU = false;
-  alpha = 0.7;  //计算角度时编码器占比
+  // mUseIMU = false;
+  // alpha = 0.7;  //计算角度时编码器占比
 
 
   //  robot.setVel2PwmParam(0, 6.4141, 14.924); // vel to pwm parameters
@@ -89,7 +89,7 @@ SETTINGS Supervisor::getSettings()
 }
 
 
-void Supervisor::setGoal(double x, double y, int theta, double v)
+void Supervisor::setGoal(double x, double y, double theta, double v)
 {
   m_Goal.x = x;
   m_Goal.y = y;
@@ -105,7 +105,10 @@ void Supervisor::setGoal(double x, double y, int theta, double v)
   // }
   
   m_input.targetAngle = theta;
-   m_input.v = v;
+  m_input.v = v;
+
+  m_GoToGoal.reset();
+
 //  robot.theta = 2*PI*theta/360;
 }
 
@@ -207,6 +210,17 @@ void Supervisor::setIRFilter(bool open, float filter)
   robot.setIRFilter(open, filter);
 }
 
+void Supervisor::update(long left_ticks, long right_ticks, double dt)
+{
+  if (mSimulateMode)
+    robot.updateState((long)m_left_ticks, (long)m_right_ticks, dt);
+  else
+  {
+      robot.updateState(left_ticks, right_ticks, dt);
+  }
+}
+
+
 void Supervisor::execute(long left_ticks, long right_ticks, double yaw, double dt)
 {
 
@@ -216,26 +230,45 @@ void Supervisor::execute(long left_ticks, long right_ticks, double yaw, double d
     robot.updateState((long)m_left_ticks, (long)m_right_ticks, dt);
   else
   {
-      robot.updateState(left_ticks, right_ticks, yaw, alpha, dt);
+      robot.updateState(left_ticks, right_ticks, yaw, dt);
     // if (mUseIMU)
     //   robot.updateState(left_ticks, right_ticks, yaw, alpha, dt);
     // else
     //   robot.updateState(left_ticks, right_ticks, dt);
   }
 
-  if (m_state == S_STOP && at_goal)
+  if (m_state == S_STOP && at_goal == true )
     return;
 
   check_states();
 
-  if (at_goal)
+  if( at_goal == true )
   {
     if (m_state != S_STOP)
       Serial.println("At Goal!");
     m_state = S_STOP; //s_stop;
+    at_goal = true;
     StopMotor();
+  
+  log("\nRP%d,%d,%d,%d,%d\n",
+      (int)(1000 * robot.x),
+      (int)(1000 * robot.y),
+      (int)(1000 * robot.theta),
+      (int)(1000 * robot.w),
+      (int)(1000 * robot.velocity));
 
-    
+    return;
+
+  }
+
+  if ( m_GoToGoal.isAtGoal(&robot, &m_input ) )
+  {
+    if (m_state != S_STOP)
+      Serial.println("At Goal!");
+    m_state = S_STOP; //s_stop;
+    at_goal = true;
+    StopMotor();
+  
   log("\nRP%d,%d,%d,%d,%d\n",
       (int)(1000 * robot.x),
       (int)(1000 * robot.y),
@@ -481,7 +514,7 @@ void Supervisor::check_states()
   at_goal = false;
   if (d < d_stop)
   {
-    if (abs(robot.theta - m_input.targetAngle ) < 0.05) //0.05
+    if (abs(robot.theta - m_input.targetAngle ) < 0.05) // min_vel w = 0.84 * 0.03 = 0.025;最小控制精度
     {
       at_goal = true;
     }

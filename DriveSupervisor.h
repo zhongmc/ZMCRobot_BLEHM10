@@ -12,9 +12,10 @@
 #include "DifferencialController.h"
 
 #define S_STOP 0
-#define S_GTG 1
-#define S_AVO 2
-#define S_FW 3
+#define s_DRIVE 1
+#define S_TURN 2
+#define S_TURN_END 3
+#define S_FW 4
 
 class DriveSupervisor
 {
@@ -22,9 +23,12 @@ public:
   DriveSupervisor();
   void execute(long left_ticks, long right_ticks, double yaw, double dt);
 
+  void update(long left_ticks, long right_ticks, double dt);
   void reset(long leftTicks, long rightTicks);
   void resetRobot();
   void setGoal(double v, double w);
+  //turn around dir: 0 原地转圈，1：左轮转，2 右轮转； angle 度数；0-360;
+  void turnAround(int dir, int angle );
 
   void getRobotInfo()
   {
@@ -46,10 +50,10 @@ public:
     Serial.print(m_left_ticks);
     Serial.print(",c2:");
     Serial.println(m_right_ticks);
-    Serial.print("use imu:");
-    Serial.print(mUseIMU );
-    Serial.print(", alp=");
-    Serial.println( alpha );
+    // Serial.print("use imu:");
+    // Serial.print(mUseIMU );
+    // Serial.print(", alp=");
+    // Serial.println( alpha );
 
     robot.getRobotInfo();
     m_Controller.PrintInfo();
@@ -77,15 +81,15 @@ public:
 
   void setUseIMU(bool beUseIMU, double _alpha)
   {
-    mUseIMU = beUseIMU;
-    alpha = _alpha;
+    // mUseIMU = beUseIMU;
+    // alpha = _alpha;
     robot.setUseIMU(beUseIMU, _alpha);    
   };
 
   bool mSimulateMode;
   bool mIgnoreObstacle;
-  bool mUseIMU;
-  double alpha;
+  // bool mUseIMU;
+  // double alpha;
 
 private:
   void check_states();
@@ -97,6 +101,10 @@ private:
 
   int m_state;
   double m_right_ticks, m_left_ticks;
+
+  int turnDir, turnAngle;
+  double turnedTheta, startTheta;
+  bool inTurnState = false;
 
 private:
   

@@ -11,6 +11,7 @@ public:
   GoToGoal();
   void reset();
   void execute(Robot *robot, Input *input, Output *output, double dt);
+  bool isAtGoal(Robot *robot, Input *input );
 
   virtual void setSettings(SETTINGS settings )
   {
@@ -60,6 +61,8 @@ public:
         floatToStr(3, lastTE),
         floatToStr(4, lastTEI));
   }
+
+
 
 private:
   double lastVE, lastVEI;

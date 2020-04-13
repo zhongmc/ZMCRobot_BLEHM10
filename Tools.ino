@@ -22,10 +22,9 @@ extern volatile long count1, count2;
 
 extern bool openDebug;
 extern bool mROSConnected;
-extern bool mUseIMU;
 
 extern double batteryVoltage;
-extern int sampleRate;
+extern int sampleTime;
 
 // char *scanfDouble(char *buf, double&value, char split);
 // char *scanfInt(char *buf, int&value, char split);
@@ -115,8 +114,8 @@ void processCommand(char *buffer, int bufferLen)
       Serial.println(115200);
     else if (buffer[0] == 'p')
       Serial.println(100);
-    else
-      Serial.println("Na");
+    // else
+    //   Serial.println("Na");
     return;
   }
   char ch0, ch1;
@@ -300,9 +299,9 @@ void processCommand(char *buffer, int bufferLen)
     supervisor.updateSettings(sett); 
     driveSupervisor.updateSettings(sett);
   
-    sampleRate = sett.sampleTime/10;
+    sampleTime = sett.sampleTime;
     Serial.print("Sample：");
-    Serial.println(sampleRate );
+    Serial.println(sampleTime );
 
   }
 
@@ -329,36 +328,37 @@ void processCommand(char *buffer, int bufferLen)
     //   SetSimulateMode(false);
   }
 
-  else if (ch0 == 't' && ch1 == 'l') //turn around left/ right(-pwm) test
+  else if (ch0 == 't' && ch1 == 'l') //turn around left/ right(-pwm) test tl0/1/2,360; tl dir, angle;
   {
-    int pwm = atoi(buffer + 2);
-    int stopCount = 2000;
+    int dir = atoi(buffer + 2);
+    int angle = 360;
     char *buf = strchr(buffer, ',');
     if (buf != NULL)
-      stopCount = atof(buf + 1);
+      angle = atof(buf + 1);
 
-    turnAround(pwm, stopCount);
+    turnAround(dir, angle);
   }
   // else if (ch0 == 'm' && ch1 == 'g') //go to goal
   // {
   //   manuaGoal();
   // }
 
-  else if( ch0 == 'i' && ch1 == 'm')  //imu info
+  else if( ch0 == 'i' && ch1 == 'm')  //imu 0/1 0/1,0-1; useIMU, withMag, alpha;
   {
-      bool val = *(buffer + 2) - '0';
+    bool val = *(buffer + 2) - '0';
     float alpha = 0.5;
     if (val == true)
       alpha = atof((char *)(buffer + 4));
-    log("use IMU:%d,%s\n", val, floatToStr(0, alpha));
-    // driveSupervisor.mUseIMU = val;
-    // driveSupervisor.alpha = alpha;
-    mUseIMU = val;
-    driveSupervisor.setUseIMU(val, alpha);
-    supervisor.setUseIMU(val, alpha);
+    setUseIMU(val, alpha);
+  }
+  else if( ch0 == 'm' && ch1 == 'f') //imu filter select: 0 madgwick 1 madg 2 mentho; mf0/1/2,0/1;
+  {
+    int iFilter = *(buffer+2)-'0';
+    bool withMag = *(buffer+4) - '0';
+    // log("sel IM filter:%d.\n", iFilter);
+    setIMUFilter( iFilter, withMag );
 
   }
-
   else if( ch0 == 'c' && ch1 == 'm')   //do imu calibration
   {
     Serial.println("- Calibrate the IMU....");
@@ -388,10 +388,10 @@ void processCommand(char *buffer, int bufferLen)
 
     Serial.println( buffer );
     
-    double x = atof( ptrs[0] );
-    double y = atof( ptrs[1] );
-    double theta = atof( ptrs[2] );
-    double v = atof( ptrs[3] );
+    double x = atof( ptrs[0] )/1000.0;
+    double y = atof( ptrs[1] )/1000.0;
+    double theta = atof( ptrs[2] )/1000.0;
+    double v = atof( ptrs[3] )/1000.0;
     setGoal(x, y, theta, v);
   }
 
@@ -408,7 +408,7 @@ void processCommand(char *buffer, int bufferLen)
     }
 
     for(int i=0; i<5; i++)
-      ods[i] = atof( ptrs[i] );
+      ods[i] = atof( ptrs[i] )/1000.0;
     supervisor.setObstacleDistance(ods);
   }
   else if (ch0 == 'r' && ch1 == 'p') //set robot position
@@ -422,9 +422,9 @@ void processCommand(char *buffer, int bufferLen)
       return;
     }
 
-    double x = atof( ptrs[0] );
-    double y = atof( ptrs[1] );
-    double theta = atof( ptrs[2] );
+    double x = atof( ptrs[0] )/1000.0;
+    double y = atof( ptrs[1] )/1000.0;
+    double theta = atof( ptrs[2] )/1000.0;
     supervisor.setRobotPosition(x, y, theta);
   }
 
@@ -508,7 +508,8 @@ void processCommand(char *buffer, int bufferLen)
         // } 
   else
   {
-    Serial.println("Na");
+    Serial.print("Na,");
+    Serial.println(buffer );
   }
 }
 
@@ -524,10 +525,6 @@ void printCountInfo()
   Serial.write(',');
   Serial.println(count2);
   
-  c1 = 0xffff;
-  c2 = 0x18fff;
-  log("[CI]:%il, %il.\n", c1, c2);
-
   // Serial.print(millis());
   // Serial.print(',');
   // Serial.print(count1);
@@ -579,6 +576,8 @@ void motorSpeed(int pwml, int pwmr)
   Serial.println(c2);
 }
 
+
+/**
 void turnAround(int pwm, int stopCount)
 {
   // Serial.print("TR:");
@@ -618,6 +617,8 @@ void turnAround(int pwm, int stopCount)
   c2 = count2;
   log("ci:%d,%d;\n", c1, c2);
 }
+
+*/
 
 // void manuaGoal()
 // {

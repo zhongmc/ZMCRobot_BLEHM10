@@ -23,9 +23,87 @@ void GoToGoal::reset()
   lastVEI = 0;
   lastTE = 0;
   lastTEI = 0;
+  state = 0;
 }
 
 
+
+void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
+{
+
+  double u_x, u_y, e, e_I, e_D, w, theta_g;
+  u_x = input->x_g - robot->x;
+  u_y = input->y_g - robot->y;
+
+  theta_g = atan2(u_y, u_x);
+  double d = sqrt(pow(u_x, 2) + pow(u_y, 2));
+
+  if( state == 1)
+  {
+    output->v = 0;
+    theta_g = input->targetAngle;
+    e = theta_g - robot->theta;
+    e = atan2(sin(e), cos(e));
+
+    if( abs(e) < 0.09 )
+    {
+      StopMotor();
+      output->w = 0;
+      return;
+    }
+
+    output->w = e/2;
+    return;
+  }
+
+  output->v = input->v;
+  e = theta_g - robot->theta;
+  e = atan2(sin(e), cos(e));
+  e_D = (e - lastError) / dt;
+  e_I = lastErrorIntegration + e * dt;
+  output->w = Kp * e + Ki * e_I + Kd * e_D;
+  lastErrorIntegration = e_I;
+  lastError = e;
+ // output->w = w;
+
+  if( d < 0.3 && d > 0.03)
+  {
+    output->v = d *(input->v - 0.09)/0.3 + 0.09;
+  }
+
+  if( d > 0.02 )
+    return;  
+
+  // robot->stopMotor(); //brake
+  StopMotor();
+  Serial.println("Theta ctrl ...");
+  state = 1;
+//now theta controll
+  output->v = 0;
+  output->w = 0;
+  // theta_g = input->targetAngle;
+  // e = theta_g - robot->theta;
+  // e = atan2(sin(e), cos(e));
+  lastError = 0;
+  lastErrorIntegration = 0;
+
+}
+
+
+bool GoToGoal::isAtGoal(Robot *robot, Input *input )
+{
+  if( state == 1 )
+  {
+    if (abs(robot->theta - input->targetAngle ) < 0.06) // min_vel w = 1.0 * 0.03 = 0.03;最小控制精度
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+/**
 void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
 {
 
@@ -63,7 +141,7 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
     }
   }
 
-  if (d <= 0.02)
+  if (d <= 0.02)  // 0.15的速度，0.03的控制周期，最小精度 0.0045；
   {
     if (state != 2)
     {
@@ -114,33 +192,49 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
   // else
   if (state == 1) //距离控制
   {
-    output->v = d*(input->v - 0.05)/0.3 + 0.05;
+    output->v = d *(input->v - 0.9)/0.3 + 0.9; // d*(input->v - 0.05)/0.3 + 0.05;  //速度控制在v - 0.9间？ 
   }
   else if (state == 2)
   {
-    double p = tkp;
-    if (abs(e) > 1)
-    {
-      p = p / 2;
-      e_I = 0;
-    }
-    else
-    {
-      e_I = lastErrorIntegration + e * dt;
-    }
-    if (abs(e) > 2)
-      p = p / 3;
+    // double p = tkp;
+    // if (abs(e) > 1)
+    // {
+    //   p = p / 2;
+    //   e_I = 0;
+    // }
+    // else
+    // {
+    //   e_I = lastErrorIntegration + e * dt;
+    // }
+    // if (abs(e) > 2)
+    //   p = p / 3;
 
-    w = p * e + tki * e_I + tkd * e_D;
-    // log.info(String.format("T: %.3f, %.3f, %.3f", d, e, w));
+    // w = p * e + tki * e_I + tkd * e_D;
+    // // log.info(String.format("T: %.3f, %.3f, %.3f", d, e, w));
 
-    lastErrorIntegration = e_I;
+    // lastErrorIntegration = e_I;
+    // lastError = e;
+
+    lastErrorIntegration = 0;
     lastError = e;
 
-    output->w = w;
+
+    w = 0.095 * abs( e ) + 0.9; //1.5;  // w 1.2 - 0.9; e 0 - pi
+    if( abs(e) < 0.06 ) //0.05*1.2 一个控制周期的最小转角？ 
+      w = 0;
+
+    if( e < 0 )
+      w =-w;
+    output->w = w; //w;
     output->v = 0;
   }
 }
+
+*/
+
+
+
+
 
 // void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
 // {

@@ -98,6 +98,11 @@ void FollowWall::execute(Robot *robot, Input *input, Output *output, double dt)
   output->v = input->v; // / (1 + abs(robot->w));
   output->w = w;
 
+  if( abs(w) > 1 ) //控制拐弯速度？？
+  {
+    output->v = abs(w) * (0.1 - input->v)/2 + input->v;
+  }
+
   // Serial.print(e, 3);
   // Serial.write(',');
   // Serial.print(e_I, 3);

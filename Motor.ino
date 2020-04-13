@@ -1,10 +1,17 @@
 #include "ZMCRobot.h"
 
+
+//Control mode 2 or 3 pin (HALF/ FULL); with 3 pin mode, with brake function,call StopMotor() will brake the motor
+#define FULL_CTRL_MODE
+//define HALF_CTRL_MODE 
+
 #define LEFT_WHEEL_DIR 4
 #define LEFT_WHEEL_PWM 5
+#define LEFT_WHEEL_DIR_B 10
 
 #define RIGHT_WHEEL_DIR 7
 #define RIGHT_WHEEL_PWM 6
+#define RIGHT_WHEEL_DIR_B 11
 
 //read in whell dir
 #define LEFT_WHEEL_A 3
@@ -17,25 +24,17 @@ unsigned U0L = 0, U0R = 0;
 volatile long count1 = 0;
 volatile long count2 = 0;
 
-void stopAndReset()
-{
-  StopMotor();
-  //  lastError = 0;
-  //  iTerm = 0;
-  //  targetPosition = getWheelsPosition();
-  //  lastRestAngle = targetAngle;
-}
 
 void initMotor()
 {
   Serial.println("init motor...");
-  log("LEFT pwm: %d dir: %d wa:%d wb:%d;\n", LEFT_WHEEL_PWM, LEFT_WHEEL_DIR, LEFT_WHEEL_A, LEFT_WHEEL_B );
-  log("RIGHT pwm: %d dir: %d wa:%d wb:%d;\n", RIGHT_WHEEL_PWM, RIGHT_WHEEL_DIR, RIGHT_WHEEL_A, RIGHT_WHEEL_B );
+  // log("LEFT pwm: %d dir: %d wa:%d wb:%d;\n", LEFT_WHEEL_PWM, LEFT_WHEEL_DIR, LEFT_WHEEL_A, LEFT_WHEEL_B );
+  // log("RIGHT pwm: %d dir: %d wa:%d wb:%d;\n", RIGHT_WHEEL_PWM, RIGHT_WHEEL_DIR, RIGHT_WHEEL_A, RIGHT_WHEEL_B );
+  // Serial.print("dtoi(2):" );
+  // Serial.print("dtoi(3):" );
 
-  Serial.print("dtoi(2):" );
-  Serial.println(digitalPinToInterrupt(RIGHT_WHEEL_A));
-  Serial.print("dtoi(3):" );
-  Serial.println(digitalPinToInterrupt(LEFT_WHEEL_A));
+  // Serial.println(digitalPinToInterrupt(RIGHT_WHEEL_A));
+  // Serial.println(digitalPinToInterrupt(LEFT_WHEEL_A));
 
 
   pinMode(LEFT_WHEEL_A, INPUT_PULLUP);
@@ -57,21 +56,42 @@ void initMotor()
   pinMode(LEFT_WHEEL_B, INPUT_PULLUP);
   pinMode(RIGHT_WHEEL_B, INPUT_PULLUP);
 
+  analogWrite(LEFT_WHEEL_PWM, 0);
+  analogWrite(RIGHT_WHEEL_PWM, 0);
+
   digitalWrite(LEFT_WHEEL_DIR, HIGH);
   digitalWrite(RIGHT_WHEEL_DIR, HIGH);
 
-  analogWrite(LEFT_WHEEL_PWM, 0);
-  analogWrite(RIGHT_WHEEL_PWM, 0);
+#ifdef  FULL_CTRL_MODE
+  pinMode(LEFT_WHEEL_DIR_B, OUTPUT);
+  pinMode(RIGHT_WHEEL_DIR_B, OUTPUT);
+  digitalWrite(LEFT_WHEEL_DIR_B, LOW);
+  digitalWrite(RIGHT_WHEEL_DIR_B, LOW);
+  Serial.println("Full ctrl mode!");
+#else
+  Serial.println("Half ctrl mode!");
+
+#endif
+
   count1 = 0;
   count2 = 0;
 }
 
 void StopMotor()
 {
-  //    digitalWrite(RIGHT_WHEEL_ENABLE, HIGH);
-  //    digitalWrite(LEFT_WHEEL_ENABLE, HIGH);
+#ifdef  FULL_CTRL_MODE
   analogWrite(LEFT_WHEEL_PWM, 0);
   analogWrite(RIGHT_WHEEL_PWM, 0);
+  digitalWrite(LEFT_WHEEL_DIR, LOW);
+  digitalWrite(RIGHT_WHEEL_DIR, LOW);
+  digitalWrite(LEFT_WHEEL_DIR_B, LOW);
+  digitalWrite(RIGHT_WHEEL_DIR_B, LOW);
+  digitalWrite(LEFT_WHEEL_PWM, HIGH);
+  digitalWrite(RIGHT_WHEEL_PWM, HIGH);
+#else
+  analogWrite(LEFT_WHEEL_PWM, 0);
+  analogWrite(RIGHT_WHEEL_PWM, 0);
+#endif
 }
 
 void MoveMotor(int pwm)
@@ -89,7 +109,10 @@ void MoveLeftMotor(int PWM)
     pwm_out = PWM + U0L;
     if (pwm_out > 255)
       pwm_out = 255;
-    digitalWrite(LEFT_WHEEL_DIR, HIGH); //
+    digitalWrite(LEFT_WHEEL_DIR, HIGH);
+    #ifdef  FULL_CTRL_MODE
+    digitalWrite(LEFT_WHEEL_DIR_B, LOW);
+    #endif
   }
   else
   {
@@ -97,6 +120,9 @@ void MoveLeftMotor(int PWM)
     if (pwm_out > 255)
       pwm_out = 255;
     digitalWrite(LEFT_WHEEL_DIR, LOW);
+    #ifdef  FULL_CTRL_MODE
+    digitalWrite(LEFT_WHEEL_DIR_B, HIGH);
+    #endif
   }
   analogWrite(LEFT_WHEEL_PWM, pwm_out);
 }
@@ -110,6 +136,9 @@ void MoveRightMotor(int PWM)
     if (pwm_out > 255)
       pwm_out = 255;
     digitalWrite(RIGHT_WHEEL_DIR, LOW);
+    #ifdef  FULL_CTRL_MODE
+    digitalWrite(RIGHT_WHEEL_DIR_B, HIGH);
+    #endif
   }
   else
   {
@@ -117,6 +146,9 @@ void MoveRightMotor(int PWM)
     if (pwm_out > 255)
       pwm_out = 255;
     digitalWrite(RIGHT_WHEEL_DIR, HIGH);
+    #ifdef  FULL_CTRL_MODE
+    digitalWrite(RIGHT_WHEEL_DIR_B, LOW);
+    #endif
   }
   analogWrite(RIGHT_WHEEL_PWM, pwm_out);
 }

@@ -223,7 +223,7 @@ void Robot::reset(long left_ticks, long right_ticks)
 
 //融合IMU 的陀螺仪信息，计算转向 gyro为 度/秒  alpha 转弯角度融合参数 1-0； 1时只用编码器的
 
-void Robot::updateState(long left_ticks, long right_ticks, double yaw, double alpha, double dt)
+void Robot::updateState(long left_ticks, long right_ticks, double yaw,  double dt)
 {
   //  long left_ticks, right_ticks;
   if (prev_right_ticks == right_ticks && prev_left_ticks == left_ticks)
@@ -251,20 +251,31 @@ void Robot::updateState(long left_ticks, long right_ticks, double yaw, double al
 
   d_center = (d_right + d_left) / 2;
   velocity = d_center / dt;
-
   double phi = (d_right - d_left) / wheel_base_length;
-  double delta_theta = yaw - prev_yaw;
-  prev_yaw = yaw;
 
- delta_theta = delta_theta * alpha + (1 - alpha ) * phi;
+  if( mSettings.useIMU )
+  {
+    double alpha = 0;
+    double delta_theta = yaw - prev_yaw;
+    prev_yaw = yaw;
 
- x+= d_center * cos(theta + (delta_theta / 2.0));
- y+= d_center* sin(theta + (delta_theta / 2.0));
-
- theta = theta + delta_theta;
- theta = atan2(sin(theta), cos(theta));
+    alpha = mSettings.imuAlpha;
+    delta_theta = delta_theta * alpha + (1 - alpha ) * phi;
+    x+= d_center * cos(theta + (delta_theta / 2.0));
+    y+= d_center* sin(theta + (delta_theta / 2.0));
+    theta = theta + delta_theta;
+    theta = atan2(sin(theta), cos(theta));
   // compute odometric instantaneouse velocity
-  w = delta_theta / dt;
+    w = delta_theta / dt;
+  }
+  else
+  {
+    w = phi / dt;
+    x = x + d_center * cos(theta);
+    y = y + d_center * sin(theta);
+    theta = theta + phi;
+    theta = atan2(sin(theta), cos(theta));
+  }
 
   readIRSensors(dt);
 }
@@ -417,6 +428,11 @@ void Robot::getRobotInfo()
     Serial.print(",");
   }
   Serial.println(";");
+  Serial.print("Use IMU:");
+  Serial.print(mSettings.useIMU);
+  Serial.print(", alpha:");
+  Serial.println( mSettings.imuAlpha );
+
 }
 
 IRSensor **Robot::getIRSensors()
@@ -445,6 +461,55 @@ Vel Robot::uni_to_diff(double v, double w)
   vel.vel_l = (2 * v - w * wheel_base_length) / (2 * wheel_radius);
   return vel;
 }
+
+  Vel Robot::uni_to_diff_v(double v, double w )
+  {
+    Vel vel;
+    if( abs(v) <= 0.001 )
+    {
+      vel.vel_r = (2 * v + w * wheel_base_length) / (2 * wheel_radius);
+      vel.vel_l = (2 * v - w * wheel_base_length) / (2 * wheel_radius);
+      return vel;
+    }
+
+    vel.vel_l = v/wheel_radius;
+    vel.vel_r = v/wheel_radius;
+
+    double wv =  ( w * wheel_base_length) / (2 * wheel_radius);
+    if( w < 0 )
+    {
+      if( v < 0 )
+      {
+          vel.vel_l = vel.vel_l - wv;
+          if( vel.vel_l > 0 )
+            vel.vel_l = 0;
+      }
+      else
+      {
+          vel.vel_r = vel.vel_r + wv;
+          if( vel.vel_r < 0 )
+            vel.vel_r = 0;
+      }      
+    }
+    else
+    {
+      if( v < 0 )
+      {
+          vel.vel_r = vel.vel_r + wv;
+          if( vel.vel_r > 0 )
+            vel.vel_r = 0;
+      }
+      else
+      {
+          vel.vel_l = vel.vel_l - wv;
+          if( vel.vel_l < 0 )
+            vel.vel_l = 0;
+      }      
+    }
+    return vel;
+
+  }
+
 
 Output Robot::diff_to_uni(double vel_l, double vel_r)
 {

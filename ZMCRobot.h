@@ -83,7 +83,7 @@ void MoveLeftMotor(int PWM);
 void MoveRightMotor(int PWM);
 void StopMotor();
 
-void setGoal(double x, double y, int theta, double v);
+void setGoal(double x, double y, double theta, double v);
 void startGoToGoal();
 void stopRobot();
 void ResetRobot();
@@ -93,7 +93,7 @@ void SetIgnoreObstacle(bool igm);
 
 void setDriveGoal(double v, double w);
 void startDrive();
-void stopAndReset();
+
 
 void initMotor();
 void initBluetooth();
@@ -107,7 +107,14 @@ void sendBalanceRobotStateValue(Position pos, double irDistance[5], double volta
 void MoveMotor(int pwm);
 
 void checkBLTL();
-void turnAround(int pwm, int stopCount);
+
+// void turnAround(int pwm, int stopCount);
+
+//dir: 0 原地转，1：左轮转，2：右轮转； turnAngle：转动角度
+void turnAround(int dir, int turnAngle );
+
+void setIMUFilter(int ifilter, bool withMag );
+void setUseIMU(bool val, float alpha);
 void setPID(char *buffer);
 
 void startBalance();
@@ -125,8 +132,8 @@ const char *floatToStr(int idx, char width, unsigned char prec, double val);
 Position getRobotPosition();
 double getYaw();
 
-void showBatVoltage(float v);
-void showBleState(int state ); //0 无设备, 1 有设备，未连接, 2  有设备，已连接;
+// void showBatVoltage(float v);
+// void showBleState(int state ); //0 无设备, 1 有设备，未连接, 2  有设备，已连接;
 
 
 

@@ -52,6 +52,10 @@ void IMU9250::init(int gyroRate)
     //  }
 
     mpu.setMagneticDeclination(magnetic_declination);
+// do not use mag data    
+    mpu.useMag = true; //only be used bye FILTER::MADGWICK
+    mpu.mfilter = FILTER::MADG;
+
     mIMUReady = true;
     mpu.update();
    }
@@ -62,6 +66,17 @@ void IMU9250::init(int gyroRate)
    
   //  prev_millis = millis();
 
+}
+
+void IMU9250::setFilter(FILTER iFilter )
+{
+  mpu.mfilter = iFilter;
+    // setIMUFilter( iFilter );
+}
+
+void IMU9250::setUseMag( bool val )
+{
+  mpu.useMag = val ;
 }
 
 
@@ -136,6 +151,9 @@ void IMU9250::saveCalibrationToEEProm()
     // eeprom.writeFloat(EEP_MAG_SCALE + 4, mpu.getMagScale(1));
     // eeprom.writeFloat(EEP_MAG_SCALE + 8, mpu.getMagScale(2));
     // if (b_save) eeprom.commit();
+
+    mpu.reportCalibration();
+    
     Serial.println("Save OK.");
 }
 
@@ -147,7 +165,7 @@ void IMU9250::calibrateIMU()
     return;
 
   mpu.calibrateAccelGyro();
-  mpu.calibrateMag();
+  mpu.calibrateBoxMag();
   mpu.reportCalibration(); //  printCalibration();
   // saveCalibrationToEEProm();
 
