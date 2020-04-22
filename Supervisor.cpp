@@ -96,15 +96,8 @@ void Supervisor::setGoal(double x, double y, double theta, double v)
   m_input.x_g = x;
   m_input.y_g = y;
 
-  // if (theta <= 180)
-  //   m_input.targetAngle = (theta * PI) / 180.0;
-  // else
-  // {
-  //   theta = theta - 360;
-  //   m_input.targetAngle = (theta * PI) / 180.0;
-  // }
-  
-  m_input.targetAngle = theta;
+
+  m_input.targetTheta = theta;
   m_input.v = v;
 
   m_GoToGoal.reset();
@@ -514,7 +507,7 @@ void Supervisor::check_states()
   at_goal = false;
   if (d < d_stop)
   {
-    if (abs(robot.theta - m_input.targetAngle ) < 0.05) // min_vel w = 0.84 * 0.03 = 0.025;最小控制精度
+    if (abs(robot.theta - m_input.targetTheta ) < 0.05) // min_vel w = 0.84 * 0.03 = 0.025;最小控制精度
     {
       at_goal = true;
     }

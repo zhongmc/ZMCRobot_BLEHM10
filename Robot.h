@@ -8,7 +8,7 @@ typedef struct
 {
   double v, w; //velocity and w
   double x_g, y_g; //target x,y
-  double targetAngle;
+  double targetTheta;
 } Input;
 
 typedef struct

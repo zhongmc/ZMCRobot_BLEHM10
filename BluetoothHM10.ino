@@ -1,8 +1,9 @@
 #include "ZMCRobot.h"
 #include "robot.h"
-#include "BleFuncs.h"
+#include "commFunctions.h"
 
 
+#define BLE 1
 // #include <SoftwareSerial.h>
 
 bool connectToHM10();
@@ -11,8 +12,9 @@ bool connectToHM10();
 #define bluetoothTx  10
 #define bluetoothRx  11
 
-byte bleBuffer[30];
+char bleBuffer[100];
 byte bleBufLen;
+long lastPkgMillis;
 
 //settings parameters
 // double atObstacle = 0.25, unsafe = 0.1, angleOff = 0, velocity = 0.5, dfw = 0.15, wheelSyncKp = 10;
@@ -20,11 +22,14 @@ byte bleBufLen;
 
 //defined in BalancePID and SpeedPID
 // extern double sKp, sKi, sKd, bKp, bKi, bKd;
-#define bluetooth Serial2  //17 Rx 16 Tx
+
 
 // SoftwareSerial bluetooth(bluetoothTx, bluetoothRx);
 
 bool bleConnected = false;
+
+uint8_t queueLen = 0;
+bool queueIdle = true; 
 
 // remote clients will be able to get notifications if this characteristic changes
 // the characteristic is 2 bytes long as the first field needs to be "Flags" as per BLE specifications
@@ -40,6 +45,9 @@ void enumBlooth()
 
 void initBluetooth()
 {
+  queueLen = 0;
+  queueIdle = true; 
+  lastPkgMillis = millis();
 
   Serial.println("init BLE HM10 ...");
   bluetooth.begin(19200);
@@ -53,7 +61,7 @@ void initBluetooth()
   if( ret == true )
   {
     bluetooth.write("AT");
-    delay(200);
+    delay(20);
     enumBlooth();
     Serial.println("\nBLE ready...");
   }
@@ -61,6 +69,165 @@ void initBluetooth()
   bleBufLen = 0;
 }
 
+void BLEHM10Loop()
+{
+  char chr;
+  doSendBlePkg();
+
+  while( bluetooth.available()){
+    chr = bluetooth.read();
+    if( chr == ';' || chr =='\r' || chr == '\n')
+    {
+        bleBuffer[bleBufLen] = 0;
+        Serial.println(bleBuffer);
+        processCommand(bleBuffer, bleBufLen, BLE);
+        bleBufLen = 0;
+        continue;
+    }
+
+    bleBuffer[bleBufLen++] = chr;
+    
+    //check the OK+CONN OK+LOST
+    if( bleBufLen == 7 )
+    {
+        bleBuffer[bleBufLen] = 0;
+        if(bleConnected &&  strstr((char *)bleBuffer, "OK+LOST") != NULL )
+          {
+            bleConnected = false;
+            bleBufLen = 0;
+            Serial.println("BLE disconnect!");
+          }
+          else if(!bleConnected &&  strstr((char *)bleBuffer, "OK+CONN") != NULL ) //== (char *)bleBuffer )//OK+CONN
+          { 
+            bleConnected = true;
+            bleBufLen = 0;
+            Serial.println("BLE connected!");
+          }
+    }
+
+    if( bleBufLen > 99 )
+    {
+      Serial.println("BLE over flow!");
+      bleBuffer[bleBufLen] = 0;
+      Serial.println( (char *)bleBuffer );
+      bleBufLen = 0;
+    }
+  }
+}
+
+#define SEND_INTERVAL 10
+
+#define BLE_PKGLEN 20
+
+void sendBleMessages(byte *tmp, uint8_t len )
+{
+  int ll;
+  if( queueIdle == true )
+  {
+    queueIdle = false;
+    if( len > BLE_PKGLEN )
+      ll = BLE_PKGLEN;
+    else 
+      ll = len;
+    for( int i=0; i<ll; i++)
+    {
+      bluetooth.write((byte)*(tmp + i));
+    }    
+    bluetooth.flush();
+    lastPkgMillis = millis();
+  }
+  else
+  {
+     ll = 0;
+  }
+  //将数据写入队列，等待发送
+  while( ll < len )
+  {
+    uint8_t l = len - ll;
+    if( l > BLE_PKGLEN )
+      l = BLE_PKGLEN;
+    addData((tmp + ll), l );
+    ll = ll + l; 
+  }
+}
+
+
+
+void doSendBlePkg()
+{
+  if( isEmpty() )
+  {
+    if( millis() - lastPkgMillis > SEND_INTERVAL )
+      queueIdle = true;
+    return;
+  }
+
+  queueIdle = false;
+  if( millis() - lastPkgMillis < SEND_INTERVAL )
+  {
+    return;
+  }
+  byte buf[20];
+  int len = pullData( buf );
+  if( len <= 0 )
+    return;
+
+  for (int i = 0; i < len; i++)
+  {
+    bluetooth.write((byte) *(buf + i));
+  }
+
+  bluetooth.flush();
+  lastPkgMillis = millis();
+}
+
+
+#define QUE_SIZE 10
+//BLE分包，待发送数据队列实现
+// uint8_t queueLen = 0;
+// bool queueIdle = true; 
+char dataBuf[QUE_SIZE][20];
+uint8_t dataLens[QUE_SIZE];
+
+int addData(char *buf, uint8_t len )
+{
+  if( queueLen >= QUE_SIZE )
+  {
+    Serial.println("Ble Que full ...");
+    return -1; //full
+  }
+  memset(dataBuf[queueLen], 0, 20);
+  memcpy( dataBuf[queueLen], buf, len );
+  dataLens[queueLen] = len;
+  queueLen++;
+  return queueLen;
+}
+
+int pullData(char *buf )
+{
+  
+    if( queueLen == 0 )
+      return -1; //empty
+    
+    uint8_t len = dataLens[0];
+    memcpy( buf, dataBuf[0], len );
+    for( int i=0; i<queueLen - 1; i++ )
+    {
+      dataLens[i] = dataLens[i+1];
+      memcpy(dataBuf[i], dataBuf[i+1], 20);
+    }
+    queueLen--;
+    return len;
+}
+
+bool isEmpty()
+{
+  return queueLen == 0;
+}
+
+
+
+/*
 void doBleHM10Loop()
 {
   char chr;
@@ -204,6 +371,7 @@ void sendSettingsPkgToBle(byte *settingsArray, int len)
 }
 
 
+*/
 
 
 bool connectToHM10(){
@@ -234,4 +402,5 @@ bool connectToHM10(){
    }
    return false;
 }    
+
 

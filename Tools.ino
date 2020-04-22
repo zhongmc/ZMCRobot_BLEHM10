@@ -26,6 +26,10 @@ extern bool mROSConnected;
 extern double batteryVoltage;
 extern int sampleTime;
 
+
+#define SERIAL 0
+#define BLE 1
+
 // char *scanfDouble(char *buf, double&value, char split);
 // char *scanfInt(char *buf, int&value, char split);
 //字符串按分割符分割
@@ -47,12 +51,14 @@ void checkSerialData()
     while (Serial.available() > 0)
     {
       char ch = Serial.read();
-      comData[comDataCount++] = ch;
       if (ch == ';' || ch == '\r' || ch == '\n') //new command
       {
-        processCommand(comData, comDataCount);
+        processCommand(comData, comDataCount, SERIAL);
         comDataCount = 0;
+        continue;  /////之前没有这个，大bug
       }
+
+      comData[comDataCount++] = ch;
       if (comDataCount > 80) //some error
       {
         Serial.print("Err, CMD too long (>80)...");
@@ -105,10 +111,10 @@ void checkSerialData()
 //  Serial.println(" vi[]; velocity ki");
 //  Serial.println(" vd[]; velocity kd");
 
-void processCommand(char *buffer, int bufferLen)
+void processCommand(char *buffer, int bufferLen, int src)
 {
   *(buffer + bufferLen) = 0;
-  if (bufferLen <= 2)
+  if (bufferLen < 2)
   {
     if (buffer[0] == 'b') //get baundrate
       Serial.println(115200);
@@ -212,35 +218,39 @@ void processCommand(char *buffer, int bufferLen)
 
   else if( ch0 == 's' && ch1 == 'i') //get settings info
   {
-    SETTINGS sett = supervisor.getSettings( );
 
-    log("ROP%d,%d,%d,%s,%s,%s,%s,%s,%s\n", sett.sampleTime, sett.min_rpm, sett.max_rpm, 
-          floatToStr(0, sett.radius),
-          floatToStr(1, sett.length),
-          floatToStr(2, sett.atObstacle),
-          floatToStr(3, sett.dfw ),
-          floatToStr(4, sett.unsafe ),
-          floatToStr(5, sett.max_w )
-          );
+    SendSettings();
 
-    delay(10);
-    log("PID1,%s,%s,%s\n", floatToStr(0, sett.kp),
-      floatToStr(1, sett.ki),
-      floatToStr(2, sett.kd));
 
-    log("PID2,%s,%s,%s\n", floatToStr(0, sett.pkp),
-      floatToStr(1, sett.pki),
-      floatToStr(2, sett.pkd));
+    // SETTINGS sett = supervisor.getSettings( );
 
-    delay(10);
+    // log("ROP%d,%d,%d,%s,%s,%s,%s,%s,%s\n", sett.sampleTime, sett.min_rpm, sett.max_rpm, 
+    //       floatToStr(0, sett.radius),
+    //       floatToStr(1, sett.length),
+    //       floatToStr(2, sett.atObstacle),
+    //       floatToStr(3, sett.dfw ),
+    //       floatToStr(4, sett.unsafe ),
+    //       floatToStr(5, sett.max_w )
+    //       );
 
-    log("PID3,%s,%s,%s\n", floatToStr(0, sett.tkp),
-      floatToStr(1, sett.tki),
-      floatToStr(2, sett.tkd));
+    // delay(10);
+    // log("PID1,%s,%s,%s\n", floatToStr(0, sett.kp),
+    //   floatToStr(1, sett.ki),
+    //   floatToStr(2, sett.kd));
 
-    log("PID4,%s,%s,%s\r\n", floatToStr(0, sett.dkp),
-      floatToStr(1, sett.dki),
-      floatToStr(2, sett.dkd));
+    // log("PID2,%s,%s,%s\n", floatToStr(0, sett.pkp),
+    //   floatToStr(1, sett.pki),
+    //   floatToStr(2, sett.pkd));
+
+    // delay(10);
+
+    // log("PID3,%s,%s,%s\n", floatToStr(0, sett.tkp),
+    //   floatToStr(1, sett.tki),
+    //   floatToStr(2, sett.tkd));
+
+    // log("PID4,%s,%s,%s\r\n", floatToStr(0, sett.dkp),
+    //   floatToStr(1, sett.dki),
+    //   floatToStr(2, sett.dkd));
 
   }
   else if (ch0 == 'p' && ch1 == 'i') //set pid cmd: pi type kp,ki,kd;
@@ -364,6 +374,26 @@ void processCommand(char *buffer, int bufferLen)
     Serial.println("- Calibrate the IMU....");
     mIMU.calibrateIMU();
   }
+
+  else if (ch0 == 'i' && ch1 == 'f') // set ir filter IF0/1,0.6;
+  {
+    bool val = *(buffer + 2) - '0';
+    float filter = atof((char *)(buffer + 3));
+    log("S IR flt:%d,%s\n", val, floatToStr(0, filter));
+    supervisor.setIRFilter(val, filter);
+    driveSupervisor.setIRFilter(val, filter);
+  }
+  else if ( ch0 == 'i' && ch1 == 'r')
+  {
+    short idx = *(buffer + 2) - '0';
+    byte val = *(buffer + 3) - '0';
+    log("S IR:%d,%d\n", idx, val);
+
+    supervisor.setHaveIRSensor(idx, val);
+    driveSupervisor.setHaveIRSensor(idx, val);
+  }
+
+
   else if( ch0 == 's' && ch1 == 'c')  //save calibration to eeprom
   {
     mIMU.saveCalibrationToEEProm();
@@ -390,8 +420,18 @@ void processCommand(char *buffer, int bufferLen)
     
     double x = atof( ptrs[0] )/1000.0;
     double y = atof( ptrs[1] )/1000.0;
-    double theta = atof( ptrs[2] )/1000.0;
+    double angle = atof( ptrs[2] ); ///1000.0;
     double v = atof( ptrs[3] )/1000.0;
+
+    double theta;
+
+    if (angle <= 180)
+      theta = (angle * PI) / 180.0;
+    else
+    {
+      angle = angle - 360;
+      theta = (angle * PI) / 180.0;
+    }
     setGoal(x, y, theta, v);
   }
 
@@ -520,23 +560,16 @@ void printCountInfo()
   c1 = count1;
   c2 = count2;
 
-  Serial.print("CI:");
+  Serial.print("-CI:");
   Serial.print(count1);
   Serial.write(',');
   Serial.println(count2);
-  
-  // Serial.print(millis());
-  // Serial.print(',');
-  // Serial.print(count1);
-  // Serial.print(',');
-  // Serial.println(count2);
 
-  // Serial.print("C1=");
-  // Serial.print(count1);
-  // Serial.print(", C2=");
-  // Serial.println(count2);
-  // Serial.print("time:");
-  // Serial.println(millis());
+  bluetooth.print("-CI:");
+  bluetooth.print(count1);
+  bluetooth.write(',');
+  bluetooth.println(count2);
+
 }
 
 void speedTest(int pwm0, int pwm1, int step)
@@ -555,7 +588,7 @@ void motorSpeed(int pwml, int pwmr)
   MoveLeftMotor(pwml);
   MoveRightMotor(pwmr);
 
-  log("%d,%d,", pwml, pwmr);
+  SendMessages("-%d,%d,", pwml, pwmr);
 
   // Serial.print(pwm);
   // Serial.print(',');
@@ -566,14 +599,10 @@ void motorSpeed(int pwml, int pwmr)
   delay(1000);
   lt = millis() - lt;
 
-  c1 = count1 - c1;
-  c2 = count2 - c2;
+  int cc1 = count1 - c1;
+  int cc2 = count2 - c2;
+  SendMessages("%d,%d,%d\n", lt, cc1, cc2);
   // log("%d,%d,%d\n", lt, c1, c2);
-  Serial.print(lt);
-  Serial.write(',');
-  Serial.print( c1 );
-  Serial.write(',');
-  Serial.println(c2);
 }
 
 
@@ -663,6 +692,7 @@ int formatStr(char *buf, char *format, ...)
 }
 
 
+
 void log(const char *format, ...)
 {
   char tmp[500];
@@ -673,6 +703,8 @@ void log(const char *format, ...)
   va_end(vArgList);
   Serial.print(tmp);
 }
+
+
 
 char tmp[20][15];
 

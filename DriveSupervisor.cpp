@@ -2,7 +2,7 @@
 #include "DriveSupervisor.h"
 #include "ZMCRobot.h"
 
-void logToBle(const char *format, ...);
+void SendMessages(const char *format, ...);
 
 DriveSupervisor::DriveSupervisor()
 {
@@ -181,7 +181,7 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
       inTurnState = false;
       StopMotor();
       m_state = S_STOP;
-      logToBle("ta1:%d\n", turnedAngle);
+      SendMessages("ta1:%d\n", turnedAngle);
       if( !mSimulateMode )
       {
         theta = robot.theta;
@@ -193,8 +193,8 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
         turnedAngle = (int)(180.0*turnedTheta / PI );
       }
 
-      logToBle("ta2:%d\n", turnedAngle);
-      logToBle("rt:%s\n", floatToStr(0, robot.theta ));
+      SendMessages("ta2:%d\n", turnedAngle);
+      SendMessages("rt:%s\n", floatToStr(0, robot.theta ));
 
       Serial.print("-turned:");
       Serial.print( turnedTheta, 4);

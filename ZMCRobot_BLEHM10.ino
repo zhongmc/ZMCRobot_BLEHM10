@@ -12,6 +12,7 @@
 
 #include "pitches.h"
 
+#include "commFunctions.h"
 //#include "MyKey.h"
 //#include "MyMenu.h"
 
@@ -55,8 +56,6 @@ bool mROSConnected = false;
 
 bool doCheckBattleVoltage = true;
 bool openDebug = false;
-byte settingsReqQueue[8];
-short queueLen = 0;
 
 extern volatile long count1, count2;
 extern int comDataCount;
@@ -71,7 +70,7 @@ extern int comDataCount;
 unsigned long loopExecuteTime = 0;
 int imuCycle;
 int sampleTime = 30; // (sample time 30 ms);
-unsigned long prevSampleMillis, prevBattMillis, prevImuMillis;
+unsigned long prevSampleMillis, prevBattMillis, prevImuMillis, prevStateMillis;
 //bool backLightOn = false;
 double irDistance[5];
 Position pos;
@@ -155,16 +154,16 @@ void setup()
 
   prevSampleMillis = millis();
   prevBattMillis = prevSampleMillis; //millis();
+  prevStateMillis = prevSampleMillis;
   batteryLowCount = 0;
 }
 
 void loop()
 {
   checkSerialData();
-  doBleHM10Loop();
+  BLEHM10Loop();
   blinkLed.beSureToBlink();
-  //ble cmd process
-  processSetingsRequire();
+
   //ultrasonic process
   processUltrasonic();
   unsigned long millisNow;
@@ -237,34 +236,23 @@ void loop()
           driveSupervisor.setRobotPosition(pos.x, pos.y, pos.theta);
         }
         // sendRobotStateValue(8, pos, irDistance, batteryVoltage);
-      }
 //report Robot States
-        sendRobotStateValue(8, pos, irDistance, batteryVoltage);
+    // SendRobotStates( pos, irDistance, batteryVoltage);
 
-        if( mROSConnected )
-        {
-          log("RP%d,%d,%d,%d,%d\n",
-                (int)(10000 * pos.x),
-                (int)(10000 * pos.y),
-                (int)(10000 * pos.theta),
-                (int)(10000 * pos.w),
-                (int)(10000 * pos.v));
-          log("IR%d,%d,%d,%d,%d\n",
-                (int)(100 * irDistance[0]),
-                (int)(100 * irDistance[1]),
-                (int)(100 * irDistance[2]),
-                (int)(100 * irDistance[3]),
-                (int)(100 * irDistance[4]));
-        //   log("IM%d,%d,%d,%d\n",
-        //       (int)(1000* mIMU.getQuaternion(0)),
-        //       (int)(1000* mIMU.getQuaternion(1)),
-        //       (int)(1000* mIMU.getQuaternion(2)),
-        //       (int)(1000* mIMU.getQuaternion(3))
-        //   );
-        }
+      }
+
+    
     long execTime =  millis() - millisNow;
     if( execTime > loopExecuteTime)
       loopExecuteTime = execTime;
+  }
+
+  if( millisNow - prevStateMillis >= 60 )
+  {
+//report Robot States
+    prevStateMillis =  millisNow;
+    // SendRobotStates( pos, irDistance, batteryVoltage);
+    sendRobotStateValue( pos, irDistance, batteryVoltage);
   }
 
   if (millisNow - prevBattMillis >= 1000 ) 

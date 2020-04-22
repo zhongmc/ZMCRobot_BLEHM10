@@ -41,7 +41,7 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
   if( state == 1)
   {
     output->v = 0;
-    theta_g = input->targetAngle;
+    theta_g = input->targetTheta;
     e = theta_g - robot->theta;
     e = atan2(sin(e), cos(e));
 
@@ -81,7 +81,7 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
 //now theta controll
   output->v = 0;
   output->w = 0;
-  // theta_g = input->targetAngle;
+  // theta_g = input->targetTheta;
   // e = theta_g - robot->theta;
   // e = atan2(sin(e), cos(e));
   lastError = 0;
@@ -94,7 +94,7 @@ bool GoToGoal::isAtGoal(Robot *robot, Input *input )
 {
   if( state == 1 )
   {
-    if (abs(robot->theta - input->targetAngle ) < 0.06) // min_vel w = 1.0 * 0.03 = 0.03;最小控制精度
+    if (abs(robot->theta - input->targetTheta ) < 0.06) // min_vel w = 1.0 * 0.03 = 0.03;最小控制精度
     {
       return true;
     }
@@ -153,7 +153,7 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
   }
 
   if (state == 2)
-    theta_g = input->targetAngle;
+    theta_g = input->targetTheta;
 
   e = theta_g - robot->theta;
   e = atan2(sin(e), cos(e));

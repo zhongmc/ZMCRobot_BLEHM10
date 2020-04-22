@@ -100,7 +100,8 @@ void initBluetooth();
 void checkSerialData();
 //ble cmd process
 void processSetingsRequire();
-void sendRobotStateValue(byte stateType, Position pos, double irDistance[5], double voltage);
+// void sendRobotStateValue(byte stateType, Position pos, double irDistance[5], double voltage);
+void sendRobotStateValue(Position pos, double irDistance[5], double voltage);
 
 void sendBalanceRobotStateValue(Position pos, double irDistance[5], double voltage);
 
