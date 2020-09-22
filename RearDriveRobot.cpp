@@ -16,10 +16,11 @@ RearDriveRobot::RearDriveRobot()
   // init(0.0312, 0.162, 390, 390, 50, 180, GP2Y0A21);
 
   //黑色轮子，自制板 新1：90电机
-  init(0.0312,  0.1565, 990, 990, 19, 86, GP2Y0A21);
+  // init(0.0312,  0.1638, 990, 990, 19, 150, GP2Y0A21);
+  init(0.0311,  0.1622, 990, 990, 19, 150, GP2Y0A21);
   
-  max_w = 1.5; 
-  mSettings.max_w = 1.5;
+  max_w = 3; // 1.5; 
+  mSettings.max_w = 3; //1.5;
 
   vel_pwm_a = 13;
   vel_pwm_b = 24;
@@ -98,9 +99,9 @@ RearDriveRobot::RearDriveRobot()
   // mPIDSettings.kd = 0.0; //0.02; //0.2
 
   //1:90
-  mSettings.kp = 5;    // 2; //25;  //20 0.5 2; 2019-01-26:   5, 0.02, 0.9; 5, 0.05, 1.2; 5,0.08,1.2 2019-02-09 5, 0.01, 0.2
-  mSettings.ki = 0.0;  //.4; // 0.01;
-  mSettings.kd = 0; //0.02; //0.2
+  mSettings.kp = 4;     //5,  2; //25;  //20 0.5 2; 2019-01-26:   5, 0.02, 0.9; 5, 0.05, 1.2; 5,0.08,1.2 2019-02-09 5, 0.01, 0.2
+  mSettings.ki = 0.0;   //0, .4; // 0.01;
+  mSettings.kd = 0.01;     //0, 0.02; //0.2
 
   mSettings.pkp = 1.5;
   mSettings.pki = 0.1;
@@ -117,9 +118,9 @@ RearDriveRobot::RearDriveRobot()
 
 
 //30ms sample time param 0.18 0.4 0.003
-  mSettings.dkp = 0.3; //0.38; 
-  mSettings.dki = 0.8; //0.26;
-  mSettings.dkd = 0; //0.003;
+  mSettings.dkp = 3; // 0.3; //0.38; 
+  mSettings.dki = 0.5; // 0.8; //0.26;
+  mSettings.dkd = 0.005; //0; //0.003;
 
 
   //   bool useIMU, irFilter;

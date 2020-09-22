@@ -119,6 +119,7 @@ void DriveSupervisor::resetRobot()
   robot.theta = 0;
   m_Controller.reset(&robot);
   m_DifController.reset();
+  reset(0, 0);
 }
 
 void DriveSupervisor::reset(long leftTicks, long rightTicks)
@@ -175,7 +176,7 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
     delta_theta = atan2(sin(delta_theta), cos(delta_theta));
     turnedTheta = turnedTheta + abs(delta_theta);
     int turnedAngle = (int)(180.0*turnedTheta / PI );
-    if( abs(turnedAngle - turnAngle) < 9  || turnedAngle >= turnAngle )
+    if( abs(turnedAngle - turnAngle) < 5  || turnedAngle >= turnAngle )
     {
 
       inTurnState = false;

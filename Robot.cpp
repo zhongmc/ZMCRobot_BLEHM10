@@ -257,8 +257,8 @@ void Robot::updateState(long left_ticks, long right_ticks, double yaw,  double d
   {
     double alpha = 0;
     double delta_theta = yaw - prev_yaw;
+    delta_theta = atan2(sin(delta_theta), cos(delta_theta));
     prev_yaw = yaw;
-
     alpha = mSettings.imuAlpha;
     delta_theta = delta_theta * alpha + (1 - alpha ) * phi;
     x+= d_center * cos(theta + (delta_theta / 2.0));
@@ -271,6 +271,8 @@ void Robot::updateState(long left_ticks, long right_ticks, double yaw,  double d
   else
   {
     w = phi / dt;
+    // x = x + d_center * cos(theta + phi/2);
+    // y = y + d_center * sin(theta + phi/2);
     x = x + d_center * cos(theta);
     y = y + d_center * sin(theta);
     theta = theta + phi;
@@ -454,6 +456,62 @@ double Robot::getObstacleDistance()
   return d;
 }
 
+
+
+//用单边减速的方式转弯；uni_to_diff 采用的是一边加，一边减的方式，速度不变，容易冲
+Vel Robot::uni_to_diff_oneside(double v, double w)
+{
+
+  Vel vel;
+  double wv = (w*wheel_base_length)/(2*wheel_radius);
+  if( abs(v) <= 0.001 )
+  {
+    double wvel = wv;
+    if( abs(wv) < 1.2*min_vel )
+    {
+      if( wv < 0 )
+        wvel = -1.2*min_vel;
+      else
+      {
+        wvel = 1.2*min_vel;
+      }
+    }
+    
+    vel.vel_r =  wvel; //(2 * v + w * l) / (2 * r);
+    vel.vel_l = -wvel; // (2 * v - w * l) / (2 * r);
+    return vel;
+  }
+
+  double vvel = v/wheel_radius;
+  if( abs(vvel) < min_vel )
+  {
+    if( vvel < 0 )
+      vvel = -min_vel;
+    else
+      vvel = min_vel;
+    
+  }
+  if( v*w >= 0 )
+  {
+      vel.vel_r = vvel;
+      vel.vel_l = vvel - wv*2;
+      if( vel.vel_l * v < 0 )
+        vel.vel_l = 0;
+  }
+  else
+  {
+      vel.vel_l = vvel;
+      vel.vel_r = vvel + wv*2;
+      if( vel.vel_r * v < 0 )
+        vel.vel_r = 0;
+  }
+
+  return vel;
+
+}
+
+
+
 Vel Robot::uni_to_diff(double v, double w)
 {
   Vel vel;
@@ -472,8 +530,21 @@ Vel Robot::uni_to_diff(double v, double w)
       return vel;
     }
 
-    vel.vel_l = v/wheel_radius;
-    vel.vel_r = v/wheel_radius;
+    double vvel = v/wheel_radius;
+    if( abs(vvel) < 1.2*min_vel )
+    {
+        if( v < 0 )
+          vvel =  -1.2*min_vel;
+        else
+        {
+          vvel =  1.2*min_vel;
+        }
+         
+    }
+
+    vel.vel_l = vvel;
+    vel.vel_r = vvel;
+
 
     double wv =  ( w * wheel_base_length) / (2 * wheel_radius);
     if( w < 0 )

@@ -132,6 +132,8 @@ public:
   Vel uni_to_diff(double v, double w);
   Vel uni_to_diff_v(double v, double w );
 
+  Vel uni_to_diff_oneside(double v, double w);
+  
   Output diff_to_uni(double vel_l, double vel_r);
   IRSensor **getIRSensors();
 

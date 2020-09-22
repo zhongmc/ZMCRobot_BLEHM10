@@ -1,221 +1,234 @@
 #include "IMU.h"
-#include "ZMCRobot.h"
+#include <EEPROM.h>
+
+
+enum EEP_ADDR
+{
+    EEP_CALIB_FLAG = 0x00,
+    EEP_ACC_BIAS = 0x01,
+    EEP_GYRO_BIAS = 0x0D,
+    EEP_MAG_BIAS = 0x19,
+    EEP_MAG_SCALE = 0x25
+};
+
 
 #define SPEED_LOOP_COUNT 10
 
-int doubleToStr(double val, int scale, char *buf, char append);
+void imuIntterrupt();
 
 IMU::IMU()
 {
-
-  // KG_ANG = 0.02; //0.2
-  // KG = 0.05;
-  // m_x_angle = 0;
   mIMUReady = false;
+ mpu = new MPU9250();
+  // mpu = new MPU6050();
+  useMag = false;
 }
 
 void IMU::init(int gyroRate)
 {
 
-  int ret = m_mpu6050.initialize();
-  if( ret == 0 )
-    mIMUReady = true;
-  else
-  {
-      Serial.println("IMU not pressent!");
-  }
-  
-  filter.begin( gyroRate );
+    Serial.println("init mpu...");
+    Serial.println(digitalPinToInterrupt(IMU_INT_PIN));
+    pinMode(IMU_INT_PIN, INPUT);
+    // imu intterupt
+    attachInterrupt(digitalPinToInterrupt(IMU_INT_PIN), imuIntterrupt, RISING);
+
+    bool ret = mpu->init();
+
+   if(  ret == true )
+   {
+      loadCalibrationFromEEProm();
+      mpu->printCalibration();
+
+    // for( int i=0; i<3; i++)   //校正偏差
+    //  {
+    //     mpu.setAccBias(i, accelBias[i]);
+    //     mpu.setGyroBias(i, gyroBias[i]);
+    //     mpu.setMagBias(i, magBias[i]);
+    //     mpu.setMagScale(i, magScale[i]);
+    //  }
+      mpu->setMagneticDeclination(magnetic_declination);
+      mIMUReady = true;
+      mpu->update();
+   }
+   else
+   {
+     mIMUReady = false;
+   }
+   
+  //  prev_millis = millis();
 
 }
 
-// void IMU::getIMUInfo(double *buf, double dt)
-// {
-//   readIMU(dt);
-//   buf[0] = m_sensor_angle; // m_sensor_angle;
-//   buf[1] = m_kalman_angle; //m_estima_angle;
-//   buf[2] = m_gyro;         //g_fGravityAngle;
-//   buf[3] = 0;              //mBalancePWM;
-//   buf[4] = m_x_angle;
-// }
-
-int doubleToStr(double val, int scale, char *buf, char append)
+void IMU::setFilter(FILTERTYPE iFilter )
 {
-  itoa((int)(val * scale), buf, 10);
-  int len = strlen(buf);
-  if (append != 0)
-  {
-    *(buf + len) = append;
-    *(buf + len + 1) = 0;
-    return len + 1;
-  }
-  else
-    return len;
+  mFilterType = iFilter;
 }
 
-// void IMU::sendIMUInfo()
-// {
-//   char buf[200];
-//   int len = 0, off = 0;
-//   buf[0] = 'M';
-//   buf[1] = 'U';
-//   off = 2;
+void IMU::setUseMag( bool val )
+{
+    useMag = val ;
+}
 
-//   len = doubleToStr(m_sensor_angle, 100, buf + off, ',');
-//   off = off + len;
-//   len = doubleToStr(m_gyro, 100, buf + off, ',');
-//   off = off + len;
-//   len = doubleToStr(m_kalman_angle, 100, buf + off, ',');
-//   off = off + len;
-//   len = doubleToStr(m_km_angle, 100, buf + off, 0);
-//   off = off + len;
-//   // len = doubleToStr(mSpeedPWM, 100, buf + off, ',');
-//   // off = off + len;
-//   // len = doubleToStr(robot.velocity * 100, 100, buf + off, ',');
-//   // off = off + len;
-//   // len = doubleToStr(pwm_l, 100, buf + off, 0);
-//   // off = off + len;
-//   Serial.write(buf);
-//   Serial.write('\r');
-//   Serial.write('\n');
-// }
 
-// void IMU::resetKalman()
-// {
-//   readIMU(0);
-//   double Angle_accY = atan2((double)ay, (double)az) * RAD_TO_DEG;
-//   kalman.setAngle(Angle_accY);
-// }
+void IMU::loadCalibrationFromEEProm()
+{
+    if (EEPROM.read(EEP_CALIB_FLAG) == 0x01)
+    {
+        Serial.println("calibrated to eeprom? : YES");
+        Serial.println("load calibrated values");
+        
+        float value;
+
+        for( int i=0; i<3; i++)
+        {
+          EEPROM.get( EEP_ACC_BIAS + 4*i,  value);
+          mpu->setAccBias(i, value);
+        }
+
+        for( int i=0; i<3; i++)
+        {
+          EEPROM.get( EEP_GYRO_BIAS + 4*i,  value);
+          mpu->setGyroBias(i, value);
+        }
+
+        for( int i=0; i<3; i++)
+        {
+          EEPROM.get( EEP_MAG_BIAS + 4*i,  value);
+          mpu->setMagBias(i, value);
+        }
+        for( int i=0; i<3; i++)
+        {
+          EEPROM.get( EEP_MAG_SCALE + 4*i,  value);
+          mpu->setMagScale(i, value);
+        }
+    }
+    else
+    {
+        Serial.println("calibrated to eeprom? : NO");
+    }
+}
+
+
+
+void IMU::saveCalibrationToEEProm()
+{
+    Serial.println("Save calibration to eeprom...");
+    EEPROM.write(EEP_CALIB_FLAG, 1);
+    EEPROM.put(EEP_ACC_BIAS + 0, mpu->getAccBias(0));
+    EEPROM.put(EEP_ACC_BIAS + 4, mpu->getAccBias(1));
+    EEPROM.put(EEP_ACC_BIAS + 8, mpu->getAccBias(2));
+    EEPROM.put(EEP_GYRO_BIAS + 0, mpu->getGyroBias(0));
+    EEPROM.put(EEP_GYRO_BIAS + 4, mpu->getGyroBias(1));
+    EEPROM.put(EEP_GYRO_BIAS + 8, mpu->getGyroBias(2));
+    EEPROM.put(EEP_MAG_BIAS + 0, mpu->getMagBias(0));
+    EEPROM.put(EEP_MAG_BIAS + 4, mpu->getMagBias(1));
+    EEPROM.put(EEP_MAG_BIAS + 8, mpu->getMagBias(2));
+    EEPROM.put(EEP_MAG_SCALE + 0, mpu->getMagScale(0));
+    EEPROM.put(EEP_MAG_SCALE + 4, mpu->getMagScale(1));
+    EEPROM.put(EEP_MAG_SCALE + 8, mpu->getMagScale(2));
+
+    mpu->reportCalibration();
+    
+    Serial.println("Save OK.");
+}
+
+
+
+void IMU::calibrateIMU()
+{
+  if( !mIMUReady )
+    return;
+
+  mpu->doCalibrate();
+  mpu->reportCalibration(); //  printCalibration();
+  // saveCalibrationToEEProm();
+
+}
 
 void IMU::readIMU(double dt)
 {
 
   if( !mIMUReady )
     return;
-    
-  m_mpu6050.readMotionSensor(m_aix, m_aiy, m_aiz, m_gix, m_giy, m_giz);
-  // CurieIMU.readMotionSensor(m_aix, m_aiy, m_aiz, m_gix, m_giy, m_giz);
-  // convert from raw data to gravity and degrees/second units
-  ax = convertRawAcceleration(m_aix);
-  ay = convertRawAcceleration(m_aiy);
-  az = convertRawAcceleration(m_aiz);
-  gx = convertRawGyro(m_gix);
-  gy = convertRawGyro(m_giy);
-  gz = convertRawGyro(m_giz);
+  // mpu.readIMU();
+
+  mpu->update();
 }
+
+void IMU::calculateAttitute(double dt)
+{
+  long cur_millis = millis();
+  long process_time = cur_millis - prev_millis;
+  filter.invSampleFreq = (float)process_time/1000.0f;
+
+  float gx,gy,gz,ax,ay,az,mx,my,mz;
+  gx = mpu->getGyro(0);
+  gy = mpu->getGyro(1);
+  gz = mpu->getGyro(2);
+
+  ax = mpu->getAcc(0);
+  ay = mpu->getAcc(1);
+  az = mpu->getAcc(2);
+  
+  if( useMag )
+  {
+    mx = mpu->getMag(0);
+    my = mpu->getMag( 1 );
+    mz = mpu->getMag( 2 );
+    filter.update(gx, gy, gz, ax, ay, az, my, mx, -mz);
+  }
+  else
+  {
+    filter.updateIMU(gx, gy, gz, ax, ay, az);
+  }
+  prev_millis = cur_millis;
+  // filter.updateIMU(gx, gy, gz, ax, ay, az);
+ 
+}
+
 
 double IMU::getGyro(int idx)
 {
-  switch (idx)
-  {
-  case 0:
-    return gx;
-    break;
-  case 1:
-    return gy;
-    break;
-  case 2:
-    return gz;
-    break;
-  }
 
-  return 0; ///error
+  return mpu->getGyro(idx);
 }
 
-
-void IMU::calibrateIMU()
-{
-  
-}
-
+//四元数
 double IMU::getQuaternion(int idx)
 {
-  //tobo done 
-    // filter.;
-    return 0.0;
+  switch( idx )
+  {
+    case 0:
+      return filter.q0;
+      break;
+    case 1:
+      return filter.q1;
+      break;
+    case 2:
+      return filter.q2;
+      break;
+    case 3:
+      return filter.q3;
+      break;
+  }
+  return 0;
 }
 
 double IMU::getAcceleration(int idx)
 {
-  switch (idx)
-  {
-  case 0:
-    return ax;
-    break;
-  case 1:
-    return ay;
-    break;
-  case 2:
-    return az;
-    break;
-  }
-  return 0; ///error
+  return mpu->getAcc(idx); ///error
 }
 
-//call readIMU() first
-void IMU::calculateAttitute(double dt)
-{
-  // update the filter, which computes orientation
-  filter.updateIMU(gx, gy, gz, ax, ay, az);
-}
 
 
 void IMU::debugOut()
 {
     Serial.println("IMU info (yaw,pitch,roll)：");
-    Serial.print("madgwick:");
     Serial.print(filter.getYaw(), 2); 
     Serial.print(", "); 
     Serial.print(filter.getPitch(), 2); 
     Serial.print(", "); 
     Serial.println(filter.getRoll(), 2); 
+
 }
-
-//call readIMU() first
-// void IMU::calculateAngle(double dt)
-// {
-
-//   m_gyro = gx; //
-//   // double Angle_accY = atan(ay / sqrt(ax * ax + az * az)) * 180 / 3.14; //offset
-//   // double m_sensor_angle = atan2((double)ay, (double)az) * RAD_TO_DEG;
-//   double Angle_accY = atan2((double)ay, (double)az) * RAD_TO_DEG;
-//   m_sensor_angle = Angle_accY;                          //filter.getRoll();
-//   m_kalman_angle = kalman.getAngle(Angle_accY, gx, dt); // Calculate the angle using a Kalman filter
-
-//   // double Angle_accY = atan2((double)ay, (double)az) * RAD_TO_DEG;
-//   // m_km_angle = km.getAngle(Angle_accY, gx, dt);
-
-//   double angle_accX = atan2((double)ax, (double)az) * RAD_TO_DEG;
-//   m_x_angle = estima_cal(m_x_angle, angle_accX, gy, dt, 0.02);
-//   m_km_angle = estima_cal(m_km_angle, m_sensor_angle, gx, dt, KG_ANG);
-// }
-
-double IMU::convertRawAcceleration(int aRaw)
-{
-  // since we are using 2G range
-  // -2g maps to a raw value of -32768
-  // +2g maps to a raw value of 32767
-
-  double a = (aRaw * 2.0) / 32768.0;
-  return a;
-}
-
-//度每秒
-double IMU::convertRawGyro(int gRaw)
-{
-  // since we are using 250 degrees/seconds range
-  // -250 maps to a raw value of -32768
-  // +250 maps to a raw value of 32767
-
-  double g = (gRaw * 250.0) / 32768.0;
-  return g;
-}
-
-//angle = (0.98)*(angle + gyro * dt) + (0.02)*(x_acc);
-//一阶融合滤波, angle 当前角度，g_angle重力加速度计角度，gyro 陀螺仪角速度
-// angle = KG * g_angle + (1-KG)*(angle + gyro * dt)
-// double IMU::estima_cal(double angle, double g_angle, double gyro, double dt, double KG)
-// {
-//   double result = KG * g_angle + (1 - KG) * (angle + gyro * dt);
-//   return result;
-// }

@@ -94,42 +94,54 @@ void IRSensor::applyGeometry(double xc, double yc, double sinTheta, double cosTh
   yw = yc + x * sinTheta + y * cosTheta;
 }
 
-
-Vector IRSensor::getWallVector(double xc, double yc, double theta, double d)
+Vector IRSensor::getWallVector(double xc, double yc, double theta, double d_fw, double fw_v)
 {
   Vector p;
   p.x = xw;
   p.y = yw;
   if (distance >= (getMaxDistance() - 0.01))
   {
+    double belta = sin( abs(theta_s) );
+    if( belta == 0 )
+      belta = 1.0;
+
+		double d = (d_fw - abs(y_s))/belta + 0.025 * (fw_v/0.15);//0.28
     double dis = distance;
     double sinV = sin(theta);
     double cosV = cos(theta);
-
     setDistance(d);
     applyGeometry(xc, yc, sinV, cosV);
     p.x = xw;
     p.y = yw;
-
     setDistance(dis);
     applyGeometry(xc, yc, sinV, cosV);
   }
-  // if (distance > d)
-  // {
-  //   double dis = distance;
-  //   double sinV = sin(theta);
-  //   double cosV = cos(theta);
-
-  //   setDistance(d);
-  //   applyGeometry(xc, yc, sinV, cosV);
-  //   p.x = xw;
-  //   p.y = yw;
-
-  //   setDistance(dis);
-  //   applyGeometry(xc, yc, sinV, cosV);
-  // }
-  return p;
+   return p;
 }
+
+
+
+// Vector IRSensor::getWallVector(double xc, double yc, double theta, double d)
+// {
+//   Vector p;
+//   p.x = xw;
+//   p.y = yw;
+//   if (distance >= (getMaxDistance() - 0.01))
+//   {
+//     double dis = distance;
+//     double sinV = sin(theta);
+//     double cosV = cos(theta);
+
+//     setDistance(d);
+//     applyGeometry(xc, yc, sinV, cosV);
+//     p.x = xw;
+//     p.y = yw;
+
+//     setDistance(dis);
+//     applyGeometry(xc, yc, sinV, cosV);
+//   }
+//    return p;
+// }
 
 void IRSensor::setIRFilter(bool open, float filt)
 {

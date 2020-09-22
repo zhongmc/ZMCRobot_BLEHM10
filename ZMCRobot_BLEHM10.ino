@@ -7,8 +7,8 @@
 #include "DriveSupervisor.h"
 #include "BlinkLed.h"
 
-#include "IMU9250.h"
 #include "IMU.h"
+
 
 #include "pitches.h"
 
@@ -22,17 +22,12 @@
 
 #define MELODY_PIN 48
 
+
+void sendIMURawData();
+
 byte currentState = STATE_IDLE;
 
-//MyKey myKey;
-// IMU9250 mIMU;
-
-#if MPU == 9250
-  IMU9250 mIMU;
-#else
-  IMU mIMU;
-#endif
-
+IMU mIMU;
 bool mIMUDataOk = false;
 
 // RearDriveRobot robot();
@@ -67,7 +62,7 @@ extern int comDataCount;
 //menu_item menuItems[17];
 //MyMenu menu(&menuItems[0]);
 
-unsigned long loopExecuteTime = 0;
+unsigned int loopExecuteTime = 0;
 int imuCycle;
 int sampleTime = 30; // (sample time 30 ms);
 unsigned long prevSampleMillis, prevBattMillis, prevImuMillis, prevStateMillis;
@@ -114,8 +109,10 @@ void setup()
 
   waitForEcho = false;
   lastTrigTimer = 0;
+ 
   // ultr sound echo intterupt
   attachInterrupt(digitalPinToInterrupt(ULTRASONIC_ECHO), UltrasonicEcho, CHANGE);
+  TrigUltrasonic();
 
   SETTINGS sett = supervisor.getSettings();
   sampleTime = sett.sampleTime;
@@ -181,14 +178,16 @@ void loop()
 
       if( mROSConnected )
       {
-          int16_t *rawData = mIMU.getRawData();
-          Serial.print("RD");
-          for( int i=0; i<8; i++)
-          {
-            Serial.print(rawData[i]);
-            Serial.print(',');
-          }
-          Serial.println(rawData[8]);
+        sendIMURawData();
+
+          // int16_t *rawData = mIMU.getRawData();
+          // Serial.print("RD");
+          // for( int i=0; i<8; i++)
+          // {
+          //   Serial.print(rawData[i]);
+          //   Serial.print(',');
+          // }
+          // Serial.println(rawData[8]);
 
           log("IM%d,%d,%d,%d\n",
               (int)(1000* mIMU.getQuaternion(0)),
@@ -229,12 +228,12 @@ void loop()
       else
       {
         supervisor.readIRDistances(irDistance);
-        if( mUseIMU )
-        {
-          pos.theta = yaw;  //mIMU.getYawRadians(); 
-          supervisor.setRobotPosition(pos.x, pos.y, pos.theta);
-          driveSupervisor.setRobotPosition(pos.x, pos.y, pos.theta);
-        }
+        // if( mUseIMU )
+        // {
+        //   pos.theta = yaw;  //mIMU.getYawRadians(); 
+        //   supervisor.setRobotPosition(pos.x, pos.y, pos.theta);
+        //   driveSupervisor.setRobotPosition(pos.x, pos.y, pos.theta);
+        // }
         // sendRobotStateValue(8, pos, irDistance, batteryVoltage);
 //report Robot States
     // SendRobotStates( pos, irDistance, batteryVoltage);
@@ -242,12 +241,14 @@ void loop()
       }
 
     
-    long execTime =  millis() - millisNow;
-    if( execTime > loopExecuteTime)
+    unsigned int execTime =  millis() - millisNow;
+    // if( execTime > loopExecuteTime)
       loopExecuteTime = execTime;
+
+    TrigUltrasonic();
   }
 
-  if( millisNow - prevStateMillis >= 60 )
+  if( millisNow - prevStateMillis >= 120 )
   {
 //report Robot States
     prevStateMillis =  millisNow;
@@ -291,6 +292,24 @@ void loop()
     
   }
 
+}
+
+
+void sendIMURawData()
+{
+  int8_t *rawData = mIMU.getRawData();
+  byte buf[3];
+
+  buf[0] = 0xA2;  //A为二进制报文标志，0 为报文类型
+  buf[1] = 18;   //长度
+  
+  Serial.write(buf[0]);
+  Serial.write(buf[1]);
+
+  for( int i=0; i<18; i++)
+    Serial.write( rawData[i] );
+
+  Serial.flush();          
 }
 
 Position getRobotPosition()
@@ -359,6 +378,9 @@ void ResetRobot()
 {
   supervisor.resetRobot();
   driveSupervisor.resetRobot();
+  count1 = 0;
+  count2 = 0;
+
   pos.x = 0;
   pos.y = 0;
   pos.theta = 0;
@@ -501,14 +523,17 @@ void processUltrasonic()
       ultrasonicDistance = 1.2; //MAX_ULTRASONIC_DIS;
     }
   }
-  else
-  {
+}
+
+//触发超声波，启动测距
+void TrigUltrasonic()
+{
     long curTime = millis();
-    if (curTime - lastTrigTimer < 40)
+    if (curTime - lastTrigTimer < sampleTime )
       return;
+
     lastTrigTimer = curTime;
     waitForEcho = true;
-
     digitalWrite(ULTRASONIC_TRIG, HIGH); //trig the ultrosonic
 
     long curMicros = micros();
@@ -518,8 +543,8 @@ void processUltrasonic()
         break;
     }
     digitalWrite(ULTRASONIC_TRIG, LOW); //trig the ultrosonic
-  }
 }
+
 
 void imuIntterrupt()
 {
@@ -559,7 +584,7 @@ void setIMUFilter(int iFilter, bool withMag )
   switch( iFilter )
   {
     case 0:
-      mIMU.setFilter( FILTER::MADGWICK);
+      mIMU.setFilter( FILTERTYPE::MADGWICK);
       Serial.println("set IMU Filter to: MADGWICK!");
       if( withMag )
         Serial.println(" with mag TRUE!");
@@ -568,11 +593,11 @@ void setIMUFilter(int iFilter, bool withMag )
           
       break;
     case 1:
-      mIMU.setFilter(FILTER::MADG );
+      mIMU.setFilter(FILTERTYPE::MADG );
       Serial.println("set IMU Filter to: MADG!");
       break;
     case 2:
-      mIMU.setFilter(FILTER::MAHONY );
+      mIMU.setFilter(FILTERTYPE::MAHONY );
       Serial.println("set IMU Filter to: MAHONY!");
       break;
   }
@@ -588,4 +613,3 @@ void setUseIMU(bool useImu,  float alpha )
     log("use IMU:%d,%s\n", useImu, floatToStr(0, alpha));
 
 }
-

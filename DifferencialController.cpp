@@ -33,36 +33,49 @@ void DifferencialController::execute(Robot *robot, Input *input, Output *output,
     double sv = input->v;
     double sw = input->w;
 
-    Vel vel = robot->uni_to_diff_v(sv, sw);
+    Vel vel = robot->uni_to_diff_oneside(sv, sw); //uni_to_diff_v(sv, sw);
     if( abs(sv) <= 0.001 )
     {
-      if( abs(vel.vel_l ) < 1.2 * robot->min_vel )
-      {
-        if( vel.vel_l < 0 )
-        {
-          output->vel_l = -1.2 * robot->min_vel;
-          output->vel_r = 1.2 * robot->min_vel;
-        }
-        else
-        {
-          output->vel_l = 1.2 * robot->min_vel;
-          output->vel_r = -1.2 * robot->min_vel;
+      // if( abs(vel.vel_l ) < 1.2 * robot->min_vel )
+      // {
+      //   if( vel.vel_l < 0 )
+      //   {
+      //     output->vel_l = -1.2 * robot->min_vel;
+      //     output->vel_r = 1.2 * robot->min_vel;
+      //   }
+      //   else
+      //   {
+      //     output->vel_l = 1.2 * robot->min_vel;
+      //     output->vel_r = -1.2 * robot->min_vel;
           
-        }
+      //   }
         
-      } 
-      else
+      // } 
+      // else
+      // {
+      //     output->vel_l = vel.vel_l;
+      //     output->vel_r = vel.vel_r;
+      // }
+
+      double dif = robot->vel_l + robot->vel_r;  //控制左右一致的转速
+      if( dif * vel.vel_l > 0 ) //1. vel_l < 0 dif <0 vel_r = vel_r - dif; 2. vel_l > 0 dif > 0 vel_r - dif
       {
-          output->vel_l = vel.vel_l;
-          output->vel_r = vel.vel_r;
+        vel.vel_r = vel.vel_r - 2*dif;
       }
+      else // 1. vel_l < 0 dif > 0 vel_l - dif 2. vel_l > 0 dif < 0 vel_l - dif
+      {
+        vel.vel_l = vel.vel_l - 2*dif;
+      }
+      
+      output->vel_l = vel.vel_l;
+      output->vel_r = vel.vel_r;
       lastError = 0;
       lastErrorIntegration = 0;
       return;
     }
 
 
-  if( sw > 0.2 ) //拐弯，不做速度控制
+  if( abs(sw) > 0.2 ) //拐弯，不做速度控制
   {
     output->vel_l = vel.vel_l;
     output->vel_r = vel.vel_r;
@@ -79,7 +92,7 @@ void DifferencialController::execute(Robot *robot, Input *input, Output *output,
       sv = Kp * e + Ki*ei + Kd*ed;
       lastErrorIntegration = ei;
       lastError = e;
-      vel = robot->uni_to_diff_v(sv, sw);
+      vel = robot->uni_to_diff_oneside(sv, sw); //uni_to_diff_v(sv, sw);
       output->vel_l = vel.vel_l;
       output->vel_r = vel.vel_r;   
   }

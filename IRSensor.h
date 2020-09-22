@@ -43,7 +43,8 @@ public:
 
   void setIRFilter(bool open, float filter);
 
-  Vector getWallVector(double xc, double yc, double theta, double d);
+  // Vector getWallVector(double xc, double yc, double theta, double d);
+  Vector getWallVector(double xc, double yc, double theta, double d_fw, double fw_v);
 
 private:
   void init();

@@ -1,6 +1,5 @@
 #include "ZMCRobot.h"
 
-#include "IMU9250.h"
 #include "IMU.h"
 
 #include "Supervisor.h"
@@ -10,8 +9,8 @@ extern DriveSupervisor driveSupervisor;
 
 extern long trigTime, echoTime;
 extern double ultrasonicDistance;
-extern unsigned long loopExecuteTime;
 extern int imuCycle;
+extern unsigned int loopExecuteTime;
 
 static char comData[82];
 int comDataCount = 0;
@@ -35,12 +34,8 @@ extern int sampleTime;
 //字符串按分割符分割
 int split(char *src, char delim, char **res, int resLen );
 
-
-#if MPU == 9250
- extern IMU9250 mIMU;
-#else
 extern IMU mIMU;
-#endif
+
 
 void checkSerialData()
 {
@@ -146,6 +141,16 @@ void processCommand(char *buffer, int bufferLen, int src)
     Serial.println("\r\n===");
     driveSupervisor.getRobotInfo();
 
+    Robot *robot = supervisor.getRobot();
+
+    SendMessages("_OK_:XYQ:%s,%s,%s :%d;\n", 
+          floatToStr(0, robot->x),
+          floatToStr(1, robot->y),
+          floatToStr(2, robot->theta),
+          loopExecuteTime
+          );
+
+
   }
   else if (ch0 == 's' && ch1 == 't') //stop
   {
@@ -209,11 +214,19 @@ void processCommand(char *buffer, int bufferLen, int src)
   else if (ch0 == 'r' && ch1 == 's') //RESET
   {
     ResetRobot();
+    Robot *robot = supervisor.getRobot();
+    SendMessages("_OK_:%s,%s,%s :d;\n", 
+          floatToStr(0, robot->x),
+          floatToStr(1, robot->y),
+          floatToStr(2, robot->theta),
+          loopExecuteTime
+          );
   }
   else if( ch0 == 'c' && ch1 == 'r') //ros connected
   {
     Serial.println("\nROS Connected OK!");
     mROSConnected = true;
+    mIMU.calibrateIMU();
   }
 
   else if( ch0 == 's' && ch1 == 'i') //get settings info
@@ -418,10 +431,10 @@ void processCommand(char *buffer, int bufferLen, int src)
 
     Serial.println( buffer );
     
-    double x = atof( ptrs[0] )/1000.0;
-    double y = atof( ptrs[1] )/1000.0;
+    double x = atof( ptrs[0] )/10.0;
+    double y = atof( ptrs[1] )/10.0;
     double angle = atof( ptrs[2] ); ///1000.0;
-    double v = atof( ptrs[3] )/1000.0;
+    double v = atof( ptrs[3] )/100.0;
 
     double theta;
 
@@ -695,7 +708,7 @@ int formatStr(char *buf, char *format, ...)
 
 void log(const char *format, ...)
 {
-  char tmp[500];
+  char tmp[200];
   va_list vArgList;
   va_start(vArgList, format);
   // sniprintf(tmp, 490, format, vArgList);

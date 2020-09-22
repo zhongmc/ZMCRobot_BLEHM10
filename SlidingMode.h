@@ -24,7 +24,7 @@ public:
   double d_fw;
 
 private:
-  void getWall(Robot *robot);
+  void getWall(Robot *robot, double fw_v);
   Vector getSegma(Vector u_gtg, Vector u_ao, Vector u_fw);
 
   bool leftObstacle, rightObstacle;

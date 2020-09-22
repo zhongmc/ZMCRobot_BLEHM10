@@ -18,7 +18,7 @@ void FollowWall::reset()
 void FollowWall::execute(Robot *robot, Input *input, Output *output, double dt)
 {
 
-  getWall(robot);
+  getWall(robot, input->v);
 
   u_fw_t.x = p0.x - p1.x;
   u_fw_t.y = p0.y - p1.y;
@@ -98,6 +98,9 @@ void FollowWall::execute(Robot *robot, Input *input, Output *output, double dt)
   output->v = input->v; // / (1 + abs(robot->w));
   output->w = w;
 
+  //no need of pid; let vw control do it
+  output->w = e;
+
   if( abs(w) > 1 ) //控制拐弯速度？？
   {
     output->v = abs(w) * (0.1 - input->v)/2 + input->v;
@@ -116,12 +119,11 @@ void FollowWall::execute(Robot *robot, Input *input, Output *output, double dt)
   //     floatToStr(2, w));
 }
 
-void FollowWall::getWall(Robot *robot)
+void FollowWall::getWall(Robot *robot, double fw_v)
 {
 
   IRSensor **irSensors = robot->getIRSensors();
-
-  double d = d_fw * 1.42;
+  // double d = d_fw * 1.42;
   double d1 = 10;
 
   int idx = 0;
@@ -136,18 +138,18 @@ void FollowWall::getWall(Robot *robot)
     switch (idx)
     {
     case 0:
-      p1 = irSensors[1]->getWallVector(robot->x, robot->y, robot->theta, d);
-      p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d);
+      p1 = irSensors[1]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
+      p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
       d1 = irSensors[2]->distance;
       break;
     case 1:
-      p1 = irSensors[0]->getWallVector(robot->x, robot->y, robot->theta, d);
-      p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d);
+      p1 = irSensors[0]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
+      p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
       d1 = irSensors[2]->distance;
       break;
     case 2:
-      p1 = irSensors[0]->getWallVector(robot->x, robot->y, robot->theta, d);
-      p0 = irSensors[1]->getWallVector(robot->x, robot->y, robot->theta, d);
+      p1 = irSensors[0]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
+      p0 = irSensors[1]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
       d1 = irSensors[1]->distance;
       break;
     }
@@ -167,18 +169,18 @@ void FollowWall::getWall(Robot *robot)
     switch (idx)
     {
     case 2:
-      p1 = irSensors[4]->getWallVector(robot->x, robot->y, robot->theta, d);
-      p0 = irSensors[3]->getWallVector(robot->x, robot->y, robot->theta, d);
+      p1 = irSensors[4]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
+      p0 = irSensors[3]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
       d1 = irSensors[3]->distance;
       break;
     case 3:
-      p1 = irSensors[4]->getWallVector(robot->x, robot->y, robot->theta, d);
-      p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d);
+      p1 = irSensors[4]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
+      p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
       d1 = irSensors[2]->distance;
       break;
     case 4:
-      p1 = irSensors[3]->getWallVector(robot->x, robot->y, robot->theta, d);
-      p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d);
+      p1 = irSensors[3]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
+      p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
       d1 = irSensors[2]->distance;
       break;
     }

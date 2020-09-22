@@ -9,12 +9,12 @@ void SlidingMode::reset()
 {
 }
 
-void SlidingMode::getWall(Robot *robot)
+void SlidingMode::getWall(Robot *robot, double fw_v)
 {
   IRSensor **irSensors = robot->getIRSensors();
   Vector p0, p1;
 
-  double d = d_fw * 1.42;
+  // double d = d_fw * 1.42;
   //get the left wall
   int idx = 0;
   for (int i = 1; i < 3; i++)
@@ -26,16 +26,16 @@ void SlidingMode::getWall(Robot *robot)
   switch (idx)
   {
   case 0:
-    p1 = irSensors[1]->getWallVector(robot->x, robot->y, robot->theta, d);
-    p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d);
+    p1 = irSensors[1]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
+    p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
     break;
   case 1:
-    p1 = irSensors[0]->getWallVector(robot->x, robot->y, robot->theta, d);
-    p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d);
+    p1 = irSensors[0]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
+    p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
     break;
   case 2:
-    p1 = irSensors[0]->getWallVector(robot->x, robot->y, robot->theta, d);
-    p0 = irSensors[1]->getWallVector(robot->x, robot->y, robot->theta, d);
+    p1 = irSensors[0]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
+    p0 = irSensors[1]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
     break;
   }
 
@@ -52,16 +52,16 @@ void SlidingMode::getWall(Robot *robot)
   switch (idx)
   {
   case 2:
-    p1 = irSensors[4]->getWallVector(robot->x, robot->y, robot->theta, d);
-    p0 = irSensors[3]->getWallVector(robot->x, robot->y, robot->theta, d);
+    p1 = irSensors[4]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
+    p0 = irSensors[3]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
     break;
   case 3:
-    p1 = irSensors[4]->getWallVector(robot->x, robot->y, robot->theta, d);
-    p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d);
+    p1 = irSensors[4]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
+    p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
     break;
   case 4:
-    p1 = irSensors[3]->getWallVector(robot->x, robot->y, robot->theta, d);
-    p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d);
+    p1 = irSensors[3]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
+    p0 = irSensors[2]->getWallVector(robot->x, robot->y, robot->theta, d_fw, fw_v);
     break;
   }
   u_fw_r.x = p0.x - p1.x;
@@ -128,7 +128,7 @@ void SlidingMode::execute(Robot *robot, Input *input, Output *output, double dt)
   u_gtg.x = input->x_g - robot->x;
   u_gtg.y = input->y_g - robot->y;
 
-  getWall(robot);
+  getWall(robot, input->v);
 
   leftObstacle = false;
   rightObstacle = false;

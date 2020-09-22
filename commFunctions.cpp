@@ -114,7 +114,8 @@ void SendSettings()
 
     SETTINGS sett = supervisor.getSettings( );
 
-    SendMessages("ROP%d,%d,%d,%s,%s,%s,%s,%s,%s\n", sett.sampleTime, sett.min_rpm, sett.max_rpm, 
+    SendMessages("ROP%d,%d,%d,%s,%s,%s,%s,%s,%s\n", 
+          sett.sampleTime, sett.min_rpm, sett.max_rpm, 
           floatToStr(0, sett.radius),
           floatToStr(1, sett.length),
           floatToStr(2, sett.atObstacle),

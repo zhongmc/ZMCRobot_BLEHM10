@@ -17,7 +17,7 @@ public:
     byte dir; // 0 left 1 right
 
 private:
-    void getWall(Robot *robot);
+    void getWall(Robot *robot, double fw_v);
     Vector p1, p0;
     Vector u_fw_t;
     bool m_beCorner;

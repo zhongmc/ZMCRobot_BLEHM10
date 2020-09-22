@@ -127,6 +127,7 @@ void Supervisor::resetRobot()
   at_obstacle = false;
   unsafe = false;
   danger = false;
+  reset(0, 0);
 }
 
 void Supervisor::reset(long leftTicks, long rightTicks)
@@ -342,7 +343,7 @@ void Supervisor::executeAvoidAndGotoGoal(double dt)
 
       Serial.print("At OB:");
       IRSensor **irSensors = robot.getIRSensors();
-        log("%s, %s, %s, %s， %s\n",
+        log("%s,%s,%s,%s,%s\n",
           floatToStr(0, irSensors[0]->distance),
           floatToStr(1, irSensors[1]->distance),
           floatToStr(2, irSensors[2]->distance),

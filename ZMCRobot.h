@@ -27,7 +27,6 @@
 #define MOTOR 1
  //TT_MOTOR DUAL_MOTOR CHANGE_MOTOR
 
-#define MPU 9250
 //3.3V or 5_V VOLT33 VOLT5
 #define VOLT5 5
 #define VOLT33 3

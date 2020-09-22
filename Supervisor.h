@@ -53,6 +53,10 @@ public:
   // }
 
 
+  Robot *getRobot()
+  {
+    return &robot;
+  }
 
   void getRobotInfo()
   {

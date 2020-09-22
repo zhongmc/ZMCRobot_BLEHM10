@@ -64,7 +64,9 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
   output->w = Kp * e + Ki * e_I + Kd * e_D;
   lastErrorIntegration = e_I;
   lastError = e;
- // output->w = w;
+
+  //no need of pid; let vw control do it
+  output->w = e;
 
   if( d < 0.3 && d > 0.03)
   {

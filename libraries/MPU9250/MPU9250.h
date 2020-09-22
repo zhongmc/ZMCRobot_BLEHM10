@@ -16,7 +16,7 @@
 enum class AFS { A2G, A4G, A8G, A16G };
 enum class GFS { G250DPS, G500DPS, G1000DPS, G2000DPS };
 enum class MFS { M14BITS, M16BITS }; // 0.6mG, 0.15mG per LSB
-
+enum class FILTER {MADGWICK, MADG, MAHONY};
 
 template <typename WireType, AFS AFSSEL = AFS::A16G, GFS GFSSEL = GFS::G2000DPS, MFS MFSSEL = MFS::M16BITS>
 class MPU9250_
@@ -72,12 +72,15 @@ class MPU9250_
 
     float magnetic_declination = -7.51; // Japan, 24th June
 
-    int16_t raw_data[9];  //keep the raw accel gyro mag
+    // int16_t raw_data[9];  //keep the raw accel gyro mag
+
+    uint8_t rawdata[18];  //the raw data 
 
 public:
 
     //是否使用 磁场数据，求解四元数
     bool useMag = false;
+    FILTER mfilter;
 
     MPU9250_() : aRes(getAres()), gRes(getGres()), mRes(getMres()) {}
 
@@ -116,9 +119,9 @@ public:
         return true;
     }
 
-    int16_t *getRawData()
+    int8_t *getRawData()
     {
-        return raw_data;
+        return rawdata;
     }
 
     void calibrateAccelGyro()
@@ -198,7 +201,7 @@ public:
             filter.invSampleFreq = (float)process_time/1000000.0f;
             if( useMag )
             {
-                filter.update(a[0], a[1], a[2], g[0], g[1], g[2], m[1], m[0], -m[2]);
+                filter.update(g[0], g[1], g[2], a[0], a[1], a[2], m[1], m[0], -m[2]);
                 q[0] = filter.q0;
                 q[1] = filter.q1;
                 q[2] = filter.q2;
@@ -207,7 +210,7 @@ public:
             }
             else
             {
-                filter.updateIMU(a[0], a[1], a[2], g[0], g[1], g[2]);
+                filter.updateIMU(g[0], g[1], g[2], a[0], a[1], a[2]);
                 q[0] = filter.q0;
                 q[1] = filter.q1;
                 q[2] = filter.q2;
@@ -403,13 +406,13 @@ private:
         g[1] = (float)MPU9250Data[5] * gRes - gyroBias[1];
         g[2] = (float)MPU9250Data[6] * gRes - gyroBias[2];
 
-        raw_data[0] = MPU9250Data[0];
-        raw_data[1] = MPU9250Data[1];
-        raw_data[2] = MPU9250Data[2];
+        // raw_data[0] = MPU9250Data[0];
+        // raw_data[1] = MPU9250Data[1];
+        // raw_data[2] = MPU9250Data[2];
 
-        raw_data[3] = MPU9250Data[4];
-        raw_data[4] = MPU9250Data[5];
-        raw_data[5] = MPU9250Data[6];
+        // raw_data[3] = MPU9250Data[4];
+        // raw_data[4] = MPU9250Data[5];
+        // raw_data[5] = MPU9250Data[6];
 
 
     }
@@ -425,6 +428,12 @@ private:
         destination[4] = ((int16_t)rawData[8] << 8) | rawData[9] ;
         destination[5] = ((int16_t)rawData[10] << 8) | rawData[11] ;
         destination[6] = ((int16_t)rawData[12] << 8) | rawData[13] ;
+
+        for( int i=0; i<6; i++)
+        {
+            rawdata[i] = rawData[i];
+            rawdata[6+i] = rawData[8+i];
+        }
     }
 
     void updateMag()
@@ -443,9 +452,9 @@ private:
             m[1] = (float)(magCount[1] * mRes * magCalibration[1] - magBias[1]) * magScale[1];
             m[2] = (float)(magCount[2] * mRes * magCalibration[2] - magBias[2]) * magScale[2];
 
-            raw_data[6] = magCount[0];
-            raw_data[7] = magCount[1];
-            raw_data[8] = magCount[2];
+            // raw_data[6] = magCount[0];
+            // raw_data[7] = magCount[1];
+            // raw_data[8] = magCount[2];
         }
     }
 
@@ -475,6 +484,9 @@ private:
                     destination[0] = ((int16_t)rawData[1] << 8) | rawData[0] ;  // Turn the MSB and LSB into a signed 16-bit value
                     destination[1] = ((int16_t)rawData[3] << 8) | rawData[2] ;  // Data stored as little Endian
                     destination[2] = ((int16_t)rawData[5] << 8) | rawData[4] ; 
+
+                    for( int i=0; i<6; i++)
+                        rawdata[12+i] = rawData[i];
             }
             else
             {
@@ -672,7 +684,7 @@ private:
     void calibrateMPU9250(float * dest1, float * dest2)
     {
         uint8_t data[12]; // data array to hold accelerometer and gyro x, y, z, data
-        uint16_t ii, packet_countet, fifo_count;
+        uint16_t ii, packet_count, fifo_count;
         int32_t gyro_bias[3]  = {0, 0, 0}, accel_bias[3] = {0, 0, 0};
 
         // reset device
