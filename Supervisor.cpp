@@ -3,6 +3,9 @@
 #include "ZMCRobot.h"
 #include "utils.h"
 
+void sendBleMessages(byte *tmp, uint8_t len );
+
+
 #define MAX_IRSENSOR_DIS 0.3
 
 Supervisor::Supervisor()
@@ -72,7 +75,7 @@ void Supervisor::init()
   m_GoToGoal.setSettings( settings );
   m_AvoidObstacle.setSettings( settings );
   m_FollowWall.setSettings( settings );
-  m_DiffCtrl.setSettings( settings );
+  m_DriveCtrl.setSettings( settings );
   // m_DiffCtrl.updateSettings(settings);// updateSettings(settings);
 }
 
@@ -115,7 +118,7 @@ void Supervisor::resetRobot()
   m_GoToGoal.reset();
   m_AvoidObstacle.reset();
   m_FollowWall.reset();
-  m_DiffCtrl.reset();
+  m_DriveCtrl.reset();
 
   m_FollowWall.dir = 0; //left
 
@@ -141,7 +144,7 @@ void Supervisor::reset(long leftTicks, long rightTicks)
   m_GoToGoal.reset();
   m_AvoidObstacle.reset();
   m_FollowWall.reset();
-  m_DiffCtrl.reset();
+  m_DriveCtrl.reset();
 
   m_FollowWall.dir = 0; //left
 
@@ -295,7 +298,7 @@ void Supervisor::execute(long left_ticks, long right_ticks, double yaw, double d
   in.v = m_output.v;
   in.w = m_output.w;
 
-  m_DiffCtrl.execute(&robot, &in, &m_output, dt);
+  m_DriveCtrl.execute(&robot, &in, &m_output, dt);
   
   int pwm_l = robot.vel_l_to_pwm(m_output.vel_l );
   int pwm_r = robot.vel_r_to_pwm(m_output.vel_r );
@@ -313,6 +316,9 @@ void Supervisor::execute(long left_ticks, long right_ticks, double yaw, double d
     MoveLeftMotor(pwm_l);
     MoveRightMotor(pwm_r);
   }
+
+  byte *ctrl_info = m_DriveCtrl.getCtrlInfo();
+  sendBleMessages(ctrl_info, 18);
 
 //  log("RP%d,%d,%d,%d,%d\n",
 //       (int)(1000 * robot.x),
@@ -506,9 +512,9 @@ void Supervisor::check_states()
     progress_made = false;
 
   at_goal = false;
-  if (d < d_stop)
+  if (d <= DISTANCE_GOAL )
   {
-    if (abs(robot.theta - m_input.targetTheta ) < 0.05) // min_vel w = 0.84 * 0.03 = 0.025;最小控制精度
+    if (abs(robot.theta - m_input.targetTheta ) < THETA_GOAL ) // min_vel w = 0.84 * 0.03 = 0.025;最小控制精度
     {
       at_goal = true;
     }

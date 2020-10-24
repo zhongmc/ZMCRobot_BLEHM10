@@ -99,9 +99,9 @@ RearDriveRobot::RearDriveRobot()
   // mPIDSettings.kd = 0.0; //0.02; //0.2
 
   //1:90
-  mSettings.kp = 4;     //5,  2; //25;  //20 0.5 2; 2019-01-26:   5, 0.02, 0.9; 5, 0.05, 1.2; 5,0.08,1.2 2019-02-09 5, 0.01, 0.2
-  mSettings.ki = 0.0;   //0, .4; // 0.01;
-  mSettings.kd = 0.01;     //0, 0.02; //0.2
+  mSettings.kp = 0.8;     //5,  2; //25;  //20 0.5 2; 2019-01-26:   5, 0.02, 0.9; 5, 0.05, 1.2; 5,0.08,1.2 2019-02-09 5, 0.01, 0.2
+  mSettings.ki = 0.8;   //0, .4; // 0.01;
+  mSettings.kd = 0.0005;     //0, 0.02; //0.2
 
   mSettings.pkp = 1.5;
   mSettings.pki = 0.1;
@@ -118,8 +118,8 @@ RearDriveRobot::RearDriveRobot()
 
 
 //30ms sample time param 0.18 0.4 0.003
-  mSettings.dkp = 3; // 0.3; //0.38; 
-  mSettings.dki = 0.5; // 0.8; //0.26;
+  mSettings.dkp = 1; // 0.3; //0.38; 
+  mSettings.dki = 0.2; // 0.8; //0.26;
   mSettings.dkd = 0.005; //0; //0.003;
 
 

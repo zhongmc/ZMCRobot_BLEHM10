@@ -2,6 +2,7 @@
 #include "DriveSupervisor.h"
 #include "ZMCRobot.h"
 
+void sendBleMessages(byte *tmp, uint8_t len );
 void SendMessages(const char *format, ...);
 
 DriveSupervisor::DriveSupervisor()
@@ -68,7 +69,6 @@ void DriveSupervisor::init()
 {
   SETTINGS settings = robot.getSettings();
   m_Controller.setSettings(settings);
-  m_DifController.setSettings(settings);
 }
 
 void DriveSupervisor::setPIDParams(int type, double kp, double ki, double kd )
@@ -83,7 +83,7 @@ void DriveSupervisor::setGoal(double v, double w)
 {
   m_input.v = v;
   m_input.w = w;
-  m_Controller.setGoal(v, w, robot.theta);
+  // m_Controller.setGoal(v, w, robot.theta);
   inTurnState = false;
   m_state = s_DRIVE;
 }
@@ -95,7 +95,7 @@ void DriveSupervisor::turnAround(int dir, int angle )
   turnAngle = angle;
   turnedTheta = 0;
   inTurnState = true;
-  m_DifController.reset();
+  // m_DifController.reset();
   Serial.print("-turn around:");
   Serial.print( dir );
   Serial.print(", ");
@@ -109,6 +109,34 @@ void DriveSupervisor::turnAround(int dir, int angle )
   Serial.println(curAngle);
   m_state = S_TURN;
 
+  double w = 0.5;
+  switch( turnDir )
+  {
+      case 0:
+        m_input.v = 0;
+        m_input.w = w;
+        break;
+      case 1:
+        m_input.v = 0.01;
+        m_input.w = w;
+        break;
+      case 2:
+        m_input.v = 0.01;
+        m_input.w = -w;
+        break;
+      case 3:
+        m_input.v = 0;
+        m_input.w = -w;
+        break;
+      case 4:
+        m_input.v = -0.01;
+        m_input.w = w;
+        break;
+      case 5:
+        m_input.v = -0.01;
+        m_input.w = -w;
+        break;
+  }
 }
 
 void DriveSupervisor::resetRobot()
@@ -118,7 +146,7 @@ void DriveSupervisor::resetRobot()
   robot.w = 0;
   robot.theta = 0;
   m_Controller.reset(&robot);
-  m_DifController.reset();
+  // m_DifController.reset();
   reset(0, 0);
 }
 
@@ -132,12 +160,12 @@ void DriveSupervisor::reset(long leftTicks, long rightTicks)
     m_right_ticks = 0;
     robot.reset(m_left_ticks, m_right_ticks);
     m_Controller.reset(&robot);
-    m_DifController.reset();
+    // m_DifController.reset();
   }
   else
     robot.reset(leftTicks, rightTicks);
     m_Controller.reset(&robot);
-    m_DifController.reset();
+    // m_DifController.reset();
 }
 
 
@@ -227,76 +255,13 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
   if( m_state == S_STOP )
     return;
 
-  Input in;
 
-  double w = 0.5;
-  if( inTurnState )
-  {
-    switch( turnDir )
-    {
-      case 0:
-        in.v = 0;
-        in.w = w;
-        break;
-      case 1:
-        in.v = 0.01;
-        in.w = w;
-        break;
-      case 2:
-        in.v = 0.01;
-        in.w = -w;
-        break;
-      case 3:
-        in.v = 0;
-        in.w = -w;
-        break;
-      case 4:
-        in.v = -0.01;
-        in.w = w;
-        break;
-      case 5:
-        in.v = -0.01;
-        in.w = -w;
-        break;
-    }
 
-  }
-  else
-  {
-      m_Controller.execute(&robot, &m_input, &m_output, dt);
-      in.v = m_output.v;
-      in.w = m_output.w;
-  }
-
-  m_DifController.execute(&robot, &in, &m_output, dt);
+  m_Controller.execute(&robot, &m_input, &m_output, dt);
   
   int pwm_l = robot.vel_l_to_pwm(m_output.vel_l );
   int pwm_r = robot.vel_r_to_pwm(m_output.vel_r );
 
-
-
-
-  // v = m_output.v;
-  // w = m_output.w;
-  // PWM_OUT pwm = robot.getPWMOut(v, w);
-
-
-// #ifdef _DEBUG_
-//   Serial.print(v);
-//   Serial.print(",");
-//   Serial.print(w);
-
-//   Serial.print(",");
-//   Serial.print(vel.vel_l);
-//   Serial.print(",");
-//   Serial.print(vel.vel_r);
-
-//   Serial.print(",");
-//   Serial.print(pwm.pwm_l);
-//   Serial.print(",");
-//   Serial.println(pwm.pwm_r);
-
-// #endif
 
   if (mSimulateMode)
   {
@@ -309,17 +274,10 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
     MoveRightMotor(pwm_r);
   }
 
-//  log("RP%d,%d,%d,%d,%d\n",
-//       (int)(1000 * robot.x),
-//       (int)(1000 * robot.y),
-//       (int)(1000 * robot.theta),
-//       (int)(1000 * robot.w),
-//       (int)(1000 * robot.velocity));
+  byte *ctrl_info = m_Controller.getCtrlInfo();
+  sendBleMessages(ctrl_info, 18);
 
-  //   uint32_t nowMicros = micros();
 
-  //     Serial.print(",");
-  //   Serial.println( nowMicros - timer);
 }
 
 extern double ultrasonicDistance;

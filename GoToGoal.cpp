@@ -45,7 +45,7 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
     e = theta_g - robot->theta;
     e = atan2(sin(e), cos(e));
 
-    if( abs(e) < 0.09 )
+    if( abs(e) < THETA_GOAL )
     {
       StopMotor();
       output->w = 0;
@@ -73,7 +73,7 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
     output->v = d *(input->v - 0.09)/0.3 + 0.09;
   }
 
-  if( d > 0.02 )
+  if( d > DISTANCE_GOAL )
     return;  
 
   // robot->stopMotor(); //brake

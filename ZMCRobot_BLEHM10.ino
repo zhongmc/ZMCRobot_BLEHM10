@@ -129,8 +129,7 @@ void setup()
   blinkLed.init();
   blinkLed.normalBlink();
 
-  Serial.println("READY!");
-
+  
   interrupts();
  
   // bCount = 0;
@@ -148,6 +147,8 @@ void setup()
   #else
     Serial.println("Work at 5V...");
   #endif
+
+  Serial.println("READY!");
 
   prevSampleMillis = millis();
   prevBattMillis = prevSampleMillis; //millis();
@@ -180,21 +181,12 @@ void loop()
       {
         sendIMURawData();
 
-          // int16_t *rawData = mIMU.getRawData();
-          // Serial.print("RD");
-          // for( int i=0; i<8; i++)
-          // {
-          //   Serial.print(rawData[i]);
-          //   Serial.print(',');
-          // }
-          // Serial.println(rawData[8]);
-
-          log("IM%d,%d,%d,%d\n",
-              (int)(1000* mIMU.getQuaternion(0)),
-              (int)(1000* mIMU.getQuaternion(1)),
-              (int)(1000* mIMU.getQuaternion(2)),
-              (int)(1000* mIMU.getQuaternion(3))
-          );
+        // log("IM%d,%d,%d,%d\n",
+        //       (int)(1000* mIMU.getQuaternion(0)),
+        //       (int)(1000* mIMU.getQuaternion(1)),
+        //       (int)(1000* mIMU.getQuaternion(2)),
+        //       (int)(1000* mIMU.getQuaternion(3))
+        //   );
 
       }
 
@@ -240,21 +232,20 @@ void loop()
 
       }
 
+//report Robot States
+    sendRobotStateValue( pos, irDistance, batteryVoltage);
     
     unsigned int execTime =  millis() - millisNow;
-    // if( execTime > loopExecuteTime)
+    if( execTime > loopExecuteTime)
       loopExecuteTime = execTime;
-
     TrigUltrasonic();
   }
 
-  if( millisNow - prevStateMillis >= 120 )
-  {
-//report Robot States
-    prevStateMillis =  millisNow;
-    // SendRobotStates( pos, irDistance, batteryVoltage);
-    sendRobotStateValue( pos, irDistance, batteryVoltage);
-  }
+  // if( millisNow - prevStateMillis >= 100 )
+  // {
+  //   prevStateMillis =  millisNow;
+  //   sendRobotStateValue( pos, irDistance, batteryVoltage);
+  // }
 
   if (millisNow - prevBattMillis >= 1000 ) 
   {

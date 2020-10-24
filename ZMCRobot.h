@@ -59,6 +59,7 @@
 #define DIS_SPEED_DOWN_SCALE 10
 #define W_SPEED_DOWN_SCALE 1
 
+
 typedef struct
 {
   double x, y;

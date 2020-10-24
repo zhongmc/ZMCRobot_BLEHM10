@@ -208,7 +208,7 @@ public:
     virtual void doCalibrate()
     {
         calibrateMPU9250(gyroBias, accelBias);
-        magcalMPU9250(magBias, magScale);
+        // magcalMPU9250(magBias, magScale);
 
         delay(100);
         initMPU9250();

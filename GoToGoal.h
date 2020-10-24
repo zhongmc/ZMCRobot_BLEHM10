@@ -5,6 +5,10 @@
 #include "Controller.h"
 #include "Robot.h"
 
+
+#define THETA_GOAL 0.05
+#define DISTANCE_GOAL 0.02
+
 class GoToGoal : public Controller
 {
 public:

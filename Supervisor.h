@@ -12,7 +12,7 @@
 #include "FollowWall.h"
 #include "SlidingMode.h"
 
-#include "DifferencialController.h"
+#include "VWDriveController.h"
 
 #define S_STOP 0
 #define S_GTG 1
@@ -109,7 +109,7 @@ public:
     Serial.print("FLW CTRL ");
     m_FollowWall.PrintInfo();
     Serial.print("Diff Ctrl:");
-    m_DiffCtrl.PrintInfo();
+    m_DriveCtrl.PrintInfo();
   }
 
   //the target to go!
@@ -162,7 +162,8 @@ private:
   FollowWall m_FollowWall;
   SlidingMode m_SlidingMode;
 
-  DifferencialController m_DiffCtrl;
+  VWDriveController m_DriveCtrl;
+  // DifferencialController m_DiffCtrl;
 
   // Robot robot;
 

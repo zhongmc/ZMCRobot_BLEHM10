@@ -7,10 +7,7 @@
 #include "Robot.h"
 #include "RearDriveRobot.h"
 
-// #include "VelocityController.h"
-
 #include "VWDriveController.h"
-#include "DifferencialController.h"
 
 #define S_STOP 0
 #define s_DRIVE 1
@@ -110,7 +107,6 @@ private:
 private:
   
   VWDriveController m_Controller;
-  DifferencialController m_DifController;
   //   Robot robot;
   RearDriveRobot robot;
 

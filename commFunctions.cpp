@@ -64,7 +64,7 @@ void floatToByte(byte *arrayBuf, double val, double scale)
   }
 }
 
-
+byte bleStCnt = 0;
 
 // x, y, theta, v, d0,d1,d2,d3,d4,voltage
 void sendRobotStateValue( Position pos, double irDistance[5], double voltage)
@@ -80,7 +80,7 @@ void sendRobotStateValue( Position pos, double irDistance[5], double voltage)
   floatToByte(buf + 2, pos.x, scale);
   floatToByte(buf + 4, pos.y, scale);
   floatToByte(buf + 6, pos.theta, scale);
-  // floatToByte(buf + 8, pos.theta, scale);
+  //floatToByte(buf + 8, pos.w, scale);
   buf[8] = (int)(100.0 * pos.v);
   buf[9] = (byte)(int)(10.0 * voltage);
 
@@ -88,8 +88,6 @@ void sendRobotStateValue( Position pos, double irDistance[5], double voltage)
   {
     buf[10+i] = (byte)(int)(100.0*irDistance[i]);
   }
- 
- sendBleMessages( buf, 15);
 
   for (int i = 0; i < 15; i++)
   {
@@ -97,7 +95,12 @@ void sendRobotStateValue( Position pos, double irDistance[5], double voltage)
   }
   Serial.flush();
 
-
+  bleStCnt++;
+  if( bleStCnt >= 3)
+  {
+    bleStCnt = 0;
+    sendBleMessages( buf, 15);
+  }
 }
 
 
