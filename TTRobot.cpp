@@ -3,7 +3,7 @@
 TTRobot::TTRobot()
 {
   //R, L, ticksr, minRpm, maxRpm, GP2Y0A41);
-  init( 0.0325, 0.125, 20, 20, 40, 200, GP2Y0A41);
+  init( 0.0325, 0.125, 20, 40, 200, GP2Y0A41);
 
   mSettings.kp = 5;
   mSettings.ki = 0.01;

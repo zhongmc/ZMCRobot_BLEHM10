@@ -57,7 +57,10 @@ public:
     }
     float getYaw() {
         if (!anglesComputed) computeAngles();
-        return yaw * 57.29578f + 180.0f;
+        double yawDeg = yaw *  57.29578f;
+        if( yawDeg < 0 )
+            yawDeg += 360;
+        return yawDeg;
     }
     float getRollRadians() {
         if (!anglesComputed) computeAngles();

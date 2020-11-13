@@ -33,6 +33,8 @@ public:
   double getPitch() { return filter.getPitch(); };
   double getYaw()  { return filter.getYaw();} // { return filter.getYaw()-180.0; };
 
+  double getYawRadians()  { return filter.getYawRadians();} // { return filter.getYaw()-180.0; };
+
   //  度/秒 角速度 idx 0，1，2 x y z
   double getGyro(int idx);
   double getQuaternion(int idx);

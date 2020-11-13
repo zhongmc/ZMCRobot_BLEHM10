@@ -119,8 +119,8 @@ void SendSettings()
 
     SendMessages("ROP%d,%d,%d,%s,%s,%s,%s,%s,%s\n", 
           sett.sampleTime, sett.min_rpm, sett.max_rpm, 
-          floatToStr(0, sett.radius),
-          floatToStr(1, sett.length),
+          floatToStr(0, (unsigned char)2, (unsigned char)5, sett.radius),
+          floatToStr(1, (unsigned char)2, (unsigned char)5, sett.length),
           floatToStr(2, sett.atObstacle),
           floatToStr(3, sett.dfw ),
           floatToStr(4, sett.unsafe ),
@@ -128,23 +128,26 @@ void SendSettings()
           );
 
     delay(10);
-    SendMessages("PID1,%s,%s,%s\n", floatToStr(0, sett.kp),
+    SendMessages("PID1,%s,%s,%s\n", 
+      floatToStr(0, sett.kp),
       floatToStr(1, sett.ki),
-      floatToStr(2, sett.kd));
+      floatToStr(2, (unsigned char)2, (unsigned char)5, sett.kd));
 
-    SendMessages("PID2,%s,%s,%s\n", floatToStr(0, sett.pkp),
-      floatToStr(1, sett.pki),
-      floatToStr(2, sett.pkd));
+    // SendMessages("PID2,%s,%s,%s\n", 
+    //   floatToStr(0, sett.pkp),
+    //   floatToStr(1, sett.pki),
+    //   floatToStr(2, (signed char)2, (unsigned char)5, sett.pkd));
 
     delay(10);
 
-    SendMessages("PID3,%s,%s,%s\n", floatToStr(0, sett.tkp),
-      floatToStr(1, sett.tki),
-      floatToStr(2, sett.tkd));
+    // SendMessages("PID3,%s,%s,%s\n", floatToStr(0, sett.tkp),
+    //   floatToStr(1, sett.tki),
+    //   floatToStr(2, sett.tkd));
 
-    SendMessages("PID4,%s,%s,%s\n", floatToStr(0, sett.dkp),
-      floatToStr(1, sett.dki),
-      floatToStr(2, sett.dkd));
+    SendMessages("PID4,%s,%s,%s\n", 
+    floatToStr(0, sett.dkp),
+    floatToStr(1, sett.dki),
+    floatToStr(2, (unsigned char)2, (unsigned char)5, sett.dkd));
 
 }
 
@@ -162,12 +165,10 @@ void SendMessages(const char *format, ...)
   int len = strlen(tmp);
   sendBleMessages( tmp, len);
 
-  Serial.write( tmp );
-
-  // for (int i = 0; i < len; i++)
-  // {
-  //   Serial.write((byte) *(tmp + i));
-  // }
+  for (int i = 0; i < len; i++)
+  {
+    Serial.write((byte) *(tmp + i));
+  }
   Serial.flush();
 
 }

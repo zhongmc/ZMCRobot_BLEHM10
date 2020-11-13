@@ -24,6 +24,7 @@
 
 
 void sendIMURawData();
+void readCounter();
 
 byte currentState = STATE_IDLE;
 
@@ -84,7 +85,9 @@ void setup()
   delay(100);  
   Serial.begin(115200);
   delay(100);
-  initMotor();
+
+  initAsMaster();
+  // initMotor();
   initBluetooth();
 
   mIMU.init( 10 );  //gyroRate (sample frenquence)
@@ -161,7 +164,6 @@ void loop()
   checkSerialData();
   BLEHM10Loop();
   blinkLed.beSureToBlink();
-
   //ultrasonic process
   processUltrasonic();
   unsigned long millisNow;
@@ -180,14 +182,6 @@ void loop()
       if( mROSConnected )
       {
         sendIMURawData();
-
-        // log("IM%d,%d,%d,%d\n",
-        //       (int)(1000* mIMU.getQuaternion(0)),
-        //       (int)(1000* mIMU.getQuaternion(1)),
-        //       (int)(1000* mIMU.getQuaternion(2)),
-        //       (int)(1000* mIMU.getQuaternion(3))
-        //   );
-
       }
 
   }
@@ -196,11 +190,14 @@ void loop()
   {
       double dt = (double)(millisNow -  prevSampleMillis )/1000.0;
        prevSampleMillis = millisNow;
-      double yaw = (PI * mIMU.getYaw()) / 180.0;
+      double yaw = mIMU.getYawRadians(); //(PI * mIMU.getYaw()) / 180.0;
+
+      readCounter();
+
       if (currentState == STATE_GOTOGOAL)
       {
-        //report states
-        supervisor.execute(readLeftEncoder(), readRightEncoder(), yaw, dt);
+        supervisor.execute(count1, count2, yaw, dt);
+        // supervisor.execute(readLeftEncoder(), readRightEncoder(), yaw, dt);
         if( supervisor.mSimulateMode )
         {
           delay(3);
@@ -208,28 +205,17 @@ void loop()
         }
         supervisor.getIRDistances(irDistance);
         pos = supervisor.getRobotPosition();
-        // sendRobotStateValue(8, pos, irDistance, batteryVoltage);
       }
       else if (currentState == STATE_DRIVE)
       {
-        driveSupervisor.execute(readLeftEncoder(), readRightEncoder(), yaw, dt); //1/20
+        driveSupervisor.execute(count1, count2, yaw, dt); //1/20
+        // driveSupervisor.execute(readLeftEncoder(), readRightEncoder(), yaw, dt); //1/20
         driveSupervisor.getIRDistances(irDistance);
         pos = driveSupervisor.getRobotPosition();
-        // sendRobotStateValue(8, pos, irDistance, batteryVoltage);
       }
       else
       {
         supervisor.readIRDistances(irDistance);
-        // if( mUseIMU )
-        // {
-        //   pos.theta = yaw;  //mIMU.getYawRadians(); 
-        //   supervisor.setRobotPosition(pos.x, pos.y, pos.theta);
-        //   driveSupervisor.setRobotPosition(pos.x, pos.y, pos.theta);
-        // }
-        // sendRobotStateValue(8, pos, irDistance, batteryVoltage);
-//report Robot States
-    // SendRobotStates( pos, irDistance, batteryVoltage);
-
       }
 
 //report Robot States
@@ -241,11 +227,6 @@ void loop()
     TrigUltrasonic();
   }
 
-  // if( millisNow - prevStateMillis >= 100 )
-  // {
-  //   prevStateMillis =  millisNow;
-  //   sendRobotStateValue( pos, irDistance, batteryVoltage);
-  // }
 
   if (millisNow - prevBattMillis >= 1000 ) 
   {
@@ -369,9 +350,10 @@ void ResetRobot()
 {
   supervisor.resetRobot();
   driveSupervisor.resetRobot();
-  count1 = 0;
-  count2 = 0;
 
+  resetCounter();
+  // count1 = 0;
+  // count2 = 0;
   pos.x = 0;
   pos.y = 0;
   pos.theta = 0;
@@ -470,14 +452,14 @@ void setDriveGoal(double v, double w)
   }
 }
 
-void turnAround(int dir, int angle )
+void turnAround(int dir, int angle, bool useIMU )
 {
   if( currentState != STATE_DRIVE )
   {
     stopRobot(); //stop currentState
     startDrive();
   }
-  driveSupervisor.turnAround(dir, angle );
+  driveSupervisor.turnAround(dir, angle, useIMU, mIMU.getYawRadians() );
 }
 
 bool isBatteryLow()

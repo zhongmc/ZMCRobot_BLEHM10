@@ -34,6 +34,9 @@ extern int sampleTime;
 //字符串按分割符分割
 int split(char *src, char delim, char **res, int resLen );
 
+
+void readCounter();
+
 extern IMU mIMU;
 
 
@@ -123,7 +126,20 @@ void processCommand(char *buffer, int bufferLen, int src)
   ch0 = tolower(buffer[0]);
   ch1 = tolower(buffer[1]);
 
-  if (ch0 == 'g' && ch1 == 'r')
+  //运行过程中频繁使用，最先处理
+  if (ch0 == 's' && ch1 == 'd') //set drive Goal
+  {
+    double v, w = 0;
+
+    v = atof(buffer + 2);
+    char *buf = strchr(buffer, ',');
+    if (buf != NULL)
+      w = atof(buf + 1);
+
+    setDriveGoal(v, w);
+  }
+
+  else if (ch0 == 'g' && ch1 == 'r')
   {
     Serial.println("\r\n====");
     Serial.print("-BAT:");
@@ -160,6 +176,11 @@ void processCommand(char *buffer, int bufferLen, int src)
 
   else if (ch0 == 'c' && ch1 == 'i') //count info
   {
+    printCountInfo();
+  }
+  else if( ch0 == 'i' && ch1 =='c') //read i2c counter;
+  {
+    readCounter();
     printCountInfo();
   }
 
@@ -215,7 +236,7 @@ void processCommand(char *buffer, int bufferLen, int src)
   {
     ResetRobot();
     Robot *robot = supervisor.getRobot();
-    SendMessages("_OK_:%s,%s,%s :d;\n", 
+    SendMessages("_OK_:%s,%s,%s :%d;\n", 
           floatToStr(0, robot->x),
           floatToStr(1, robot->y),
           floatToStr(2, robot->theta),
@@ -233,37 +254,6 @@ void processCommand(char *buffer, int bufferLen, int src)
   {
 
     SendSettings();
-
-
-    // SETTINGS sett = supervisor.getSettings( );
-
-    // log("ROP%d,%d,%d,%s,%s,%s,%s,%s,%s\n", sett.sampleTime, sett.min_rpm, sett.max_rpm, 
-    //       floatToStr(0, sett.radius),
-    //       floatToStr(1, sett.length),
-    //       floatToStr(2, sett.atObstacle),
-    //       floatToStr(3, sett.dfw ),
-    //       floatToStr(4, sett.unsafe ),
-    //       floatToStr(5, sett.max_w )
-    //       );
-
-    // delay(10);
-    // log("PID1,%s,%s,%s\n", floatToStr(0, sett.kp),
-    //   floatToStr(1, sett.ki),
-    //   floatToStr(2, sett.kd));
-
-    // log("PID2,%s,%s,%s\n", floatToStr(0, sett.pkp),
-    //   floatToStr(1, sett.pki),
-    //   floatToStr(2, sett.pkd));
-
-    // delay(10);
-
-    // log("PID3,%s,%s,%s\n", floatToStr(0, sett.tkp),
-    //   floatToStr(1, sett.tki),
-    //   floatToStr(2, sett.tkd));
-
-    // log("PID4,%s,%s,%s\r\n", floatToStr(0, sett.dkp),
-    //   floatToStr(1, sett.dki),
-    //   floatToStr(2, sett.dkd));
 
   }
   else if (ch0 == 'p' && ch1 == 'i') //set pid cmd: pi type kp,ki,kd;
@@ -328,18 +318,6 @@ void processCommand(char *buffer, int bufferLen, int src)
 
   }
 
-
-  else if (ch0 == 's' && ch1 == 'd') //set drive Goal
-  {
-    double v, w = 0;
-
-    v = atof(buffer + 2);
-    char *buf = strchr(buffer, ',');
-    if (buf != NULL)
-      w = atof(buf + 1);
-
-    setDriveGoal(v, w);
-  }
   else if (ch0 == 's' && ch1 == 'm') //simulate mode //simulate mode sm0 sm1 sm2; 0: cancel simulate mode 1:simulate with the obstacle; 2: simulate with obstacle plus motor
   {
     int val = atoi(buffer + 2);
@@ -355,11 +333,20 @@ void processCommand(char *buffer, int bufferLen, int src)
   {
     int dir = atoi(buffer + 2);
     int angle = 360;
+    bool useIMU = false;
     char *buf = strchr(buffer, ',');
     if (buf != NULL)
+    {
       angle = atof(buf + 1);
-
-    turnAround(dir, angle);
+      buf = strchr(buf+1, ',');
+      if( buf != NULL )
+      {
+        int val = atoi( buf+1);
+        if( val != 0 )
+          useIMU = true;
+      }
+    }
+    turnAround(dir, angle, useIMU);
   }
   // else if (ch0 == 'm' && ch1 == 'g') //go to goal
   // {
@@ -724,10 +711,10 @@ char tmp[20][15];
 const char *floatToStr(int idx, double val)
 {
 
-  return floatToStr(idx, (signed char)6, (unsigned char)3, val);
+  return floatToStr(idx, (unsigned char)6, (unsigned char)3, val);
 }
 
-const char *floatToStr(int idx, signed char width, unsigned char prec, double val)
+const char *floatToStr(int idx, unsigned char width, unsigned char prec, double val)
 {
   if (idx >= 19)
     return NULL;

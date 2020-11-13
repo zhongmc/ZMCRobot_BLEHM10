@@ -112,7 +112,7 @@ void checkBLTL();
 // void turnAround(int pwm, int stopCount);
 
 //dir: 0 原地转，1：左轮转，2：右轮转； turnAngle：转动角度
-void turnAround(int dir, int turnAngle );
+void turnAround(int dir, int turnAngle, bool useIMU );
 
 void setIMUFilter(int ifilter, bool withMag );
 void setUseIMU(bool val, float alpha);
@@ -129,7 +129,7 @@ int formatStr(char *buf, char *fmt, ...);
 void log(const char *fmt, ...);
 
 const char *floatToStr(int idx, double val);
-const char *floatToStr(int idx, char width, unsigned char prec, double val);
+const char *floatToStr(int idx, unsigned char width, unsigned char prec, double val);
 Position getRobotPosition();
 double getYaw();
 

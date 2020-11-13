@@ -9,6 +9,9 @@
 
 #include "VWDriveController.h"
 
+
+void readCounter();
+
 #define S_STOP 0
 #define s_DRIVE 1
 #define S_TURN 2
@@ -26,7 +29,7 @@ public:
   void resetRobot();
   void setGoal(double v, double w);
   //turn around dir: 0 原地转圈，1：左轮转，2 右轮转； angle 度数；0-360;
-  void turnAround(int dir, int angle );
+  void turnAround(int dir, int angle, bool useIMU, double yaw );
 
   void getRobotInfo()
   {
@@ -92,7 +95,11 @@ public:
 private:
   void check_states();
 
-  double v, w;
+  double ctrl_v, ctrl_w;
+  double target_theta;  //
+  boolean keepTheta;
+  long keepThetaTime;
+  
  // Vel mVel;
   bool unsafe;
   bool danger;
@@ -100,10 +107,13 @@ private:
   int m_state;
   double m_right_ticks, m_left_ticks;
 
-  int turnDir, turnAngle;
-  double turnedTheta, startTheta;
   bool inTurnState = false;
 
+  double turnedTheta, targetTurnTheta;
+
+  double lastYaw;
+  double targetYaw;
+  bool ctrlTurnByIMU;
 private:
   
   VWDriveController m_Controller;

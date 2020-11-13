@@ -17,7 +17,10 @@ RearDriveRobot::RearDriveRobot()
 
   //黑色轮子，自制板 新1：90电机
   // init(0.0312,  0.1638, 990, 990, 19, 150, GP2Y0A21);
-  init(0.0311,  0.1622, 990, 990, 19, 150, GP2Y0A21);
+  // init(0.0311,  0.1622, 990, 990, 19, 150, GP2Y0A21);
+
+  // init(0.0310,  0.165052, 990, 19, 150, GP2Y0A21);
+  init(0.0310,  0.1580, 990, 19, 85, GP2Y0A21);
   
   max_w = 3; // 1.5; 
   mSettings.max_w = 3; //1.5;
@@ -69,11 +72,11 @@ RearDriveRobot::RearDriveRobot()
 //	-0.085	-0.067
 	
 
-  haveIrSensor[0] = true;
-  haveIrSensor[1] = true;
-  haveIrSensor[2] = true;
-  haveIrSensor[3] = true;
-  haveIrSensor[4] = true;
+  haveIrSensor[0] = false;// true;
+  haveIrSensor[1] = false; //true;
+  haveIrSensor[2] = false; //true;
+  haveIrSensor[3] = false; //true;
+  haveIrSensor[4] = false; //true;
 
 
   mSettings.atObstacle = 0.3;
@@ -99,8 +102,8 @@ RearDriveRobot::RearDriveRobot()
   // mPIDSettings.kd = 0.0; //0.02; //0.2
 
   //1:90
-  mSettings.kp = 0.8;     //5,  2; //25;  //20 0.5 2; 2019-01-26:   5, 0.02, 0.9; 5, 0.05, 1.2; 5,0.08,1.2 2019-02-09 5, 0.01, 0.2
-  mSettings.ki = 0.8;   //0, .4; // 0.01;
+  mSettings.kp = 0.5;     //5,  2; //25;  //20 0.5 2; 2019-01-26:   5, 0.02, 0.9; 5, 0.05, 1.2; 5,0.08,1.2 2019-02-09 5, 0.01, 0.2
+  mSettings.ki = 0.6;   //0, .4; // 0.01;
   mSettings.kd = 0.0005;     //0, 0.02; //0.2
 
   mSettings.pkp = 1.5;

@@ -151,6 +151,8 @@ public:
   
  double wheel_radius;
  double wheel_base_length;
+  int ticks_per_rev;
+
 
 
   int pwm_diff;
@@ -170,21 +172,17 @@ public:
 //balance 
   double angle;
   double gyro;
-
   double vel_l, vel_r;
 
-
-  int ticks_per_rev_l, ticks_per_rev_r;
-
 protected:
-  void init(double R, double L, double ticksr_l, double ticksr_r, double minRpm, double maxRpm, SENSOR_TYPE sensorType);
+  void init(double R, double L, double ticksr, double minRpm, double maxRpm, SENSOR_TYPE sensorType);
 
   SETTINGS mSettings;
 
   IRSensor *irSensors[5];
 
 private:
-  double m_per_tick_l, m_per_tick_r;
+  double m_per_tick;
   long prev_left_ticks, prev_right_ticks;
 };
 

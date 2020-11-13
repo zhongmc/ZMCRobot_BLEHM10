@@ -14,7 +14,7 @@ Robot::Robot()
 //   init(R, L, ticksr_l, ticksr_r, minRpm, maxRpm, GP2Y0A41);
 // }
 
-void Robot::init(double R, double L, double ticksr_l, double ticksr_r, double minRpm, double maxRpm, SENSOR_TYPE sensorType)
+void Robot::init(double R, double L, double ticksr, double minRpm, double maxRpm, SENSOR_TYPE sensorType)
 {
   x = 0;
   y = 0;
@@ -26,10 +26,8 @@ void Robot::init(double R, double L, double ticksr_l, double ticksr_r, double mi
 
   wheel_radius = R;           //0.065 / 2;
   wheel_base_length = L;      // 0.127;
-  ticks_per_rev_l = ticksr_l; //20;
-  ticks_per_rev_r = ticksr_r; //20;
-  m_per_tick_l = 2 * PI * wheel_radius / ticks_per_rev_l;
-  m_per_tick_r = 2 * PI * wheel_radius / ticks_per_rev_r;
+  ticks_per_rev = ticksr; //20;
+  m_per_tick = 2 * PI * wheel_radius / ticks_per_rev;
 
   max_rpm = maxRpm; //160; //267
   max_vel = max_rpm * 2 * PI / 60;
@@ -49,8 +47,8 @@ void Robot::init(double R, double L, double ticksr_l, double ticksr_r, double mi
   mSettings.min_rpm = min_rpm;
   mSettings.max_rpm = max_rpm;
 
+ }
 
-}
 
 void Robot::setIRSensorType(SENSOR_TYPE sensorType)
 {
@@ -238,20 +236,33 @@ void Robot::updateState(long left_ticks, long right_ticks, double yaw,  double d
 
   double d_right, d_left, d_center;
 
-  vel_l = ((double)(left_ticks - prev_left_ticks) / dt) / (double)ticks_per_rev_l;
-  vel_r = ((double)(right_ticks - prev_right_ticks) / dt) / (double)ticks_per_rev_r;
-  vel_l = 2 * PI * vel_l;
-  vel_r = 2 * PI * vel_r;
+  // vel_l = ((double)(left_ticks - prev_left_ticks) / dt) / (double)ticks_per_rev_l;
+  // vel_r = ((double)(right_ticks - prev_right_ticks) / dt) / (double)ticks_per_rev_r;
+  // vel_l = 2 * PI * vel_l;
+  // vel_r = 2 * PI * vel_r;
 
-  d_left = (left_ticks - prev_left_ticks) * m_per_tick_l;
-  d_right = (right_ticks - prev_right_ticks) * m_per_tick_r;
+  d_left = (left_ticks - prev_left_ticks) * m_per_tick;
+  d_right = (right_ticks - prev_right_ticks) * m_per_tick;
+
+  vel_l = (d_left /dt*wheel_radius);
+  vel_r = (d_right /dt*wheel_radius);
 
   prev_left_ticks = left_ticks;
   prev_right_ticks = right_ticks;
 
   d_center = (d_right + d_left) / 2;
   velocity = d_center / dt;
-  double phi = (d_right - d_left) / wheel_base_length;
+  double phi;
+  
+  if( abs(d_right) > abs(d_left) )
+  {
+    phi = (d_right - d_left)/wheel_base_length;
+  }
+  else
+  {
+    phi = (d_right - d_left)/wheel_base_length;
+  }
+  
 
   if( mSettings.useIMU )
   {
@@ -312,14 +323,14 @@ void Robot::updateState(long left_ticks, long right_ticks, double dt)
 
   double d_right, d_left, d_center;
 
-  vel_l = ((double)(left_ticks - prev_left_ticks) / dt) / (double)ticks_per_rev_l;
-  vel_r = ((double)(right_ticks - prev_right_ticks) / dt) / (double)ticks_per_rev_r;
+  vel_l = ((double)(left_ticks - prev_left_ticks) / dt) / (double)ticks_per_rev;
+  vel_r = ((double)(right_ticks - prev_right_ticks) / dt) / (double)ticks_per_rev;
   vel_l = 2 * PI * vel_l;
   vel_r = 2 * PI * vel_r;
 
  
-  d_left = (left_ticks - prev_left_ticks) * m_per_tick_l;
-  d_right = (right_ticks - prev_right_ticks) * m_per_tick_r;
+  d_left = (left_ticks - prev_left_ticks) * m_per_tick;
+  d_right = (right_ticks - prev_right_ticks) * m_per_tick;
 
 
 
@@ -329,7 +340,18 @@ void Robot::updateState(long left_ticks, long right_ticks, double dt)
   d_center = (d_right + d_left) / 2;
   velocity = d_center / dt;
 
-  double phi = (d_right - d_left) / wheel_base_length;
+  double phi;
+
+  if( abs(d_right) > abs(d_left) )
+  {
+    phi = (d_right - d_left)/wheel_base_length;
+  }
+  else
+  {
+    phi = (d_right - d_left)/wheel_base_length;
+  }
+
+  // double phi = (d_right - d_left) / wheel_base_length;
 
   w = phi / dt;
 
@@ -407,11 +429,10 @@ void Robot::getRobotInfo()
       floatToStr(4, max_rpm),
       floatToStr(5, min_rpm));
 
-  log("robot(R,L,tks):%s, %s, %d, %d\n",
+  log("robot(R,L,tks):%s, %s, %d\n",
       floatToStr(1, 1000 * wheel_radius),
       floatToStr(2, 1000 * wheel_base_length),
-      ticks_per_rev_l,
-      ticks_per_rev_r);
+      ticks_per_rev);
 
   log("Balance, Q=%s, gyro=%s\n",
       floatToStr(0, angle),
@@ -464,16 +485,19 @@ Vel Robot::uni_to_diff_oneside(double v, double w)
 
   Vel vel;
   double wv = (w*wheel_base_length)/(2*wheel_radius);
+
+  double minVel = 1.2*min_vel;
+
   if( abs(v) <= 0.001 )
   {
     double wvel = wv;
-    if( abs(wv) < 1.2*min_vel )
+    if( abs(wv) < minVel )
     {
       if( wv < 0 )
-        wvel = -1.2*min_vel;
+        wvel = -minVel;
       else
       {
-        wvel = 1.2*min_vel;
+        wvel = minVel;
       }
     }
     
@@ -483,12 +507,12 @@ Vel Robot::uni_to_diff_oneside(double v, double w)
   }
 
   double vvel = v/wheel_radius;
-  if( abs(vvel) < min_vel )
+  if( abs(vvel) < minVel )
   {
     if( vvel < 0 )
-      vvel = -min_vel;
+      vvel = -minVel;
     else
-      vvel = min_vel;
+      vvel = minVel;
     
   }
   if( v*w >= 0 )

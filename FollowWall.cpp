@@ -101,9 +101,9 @@ void FollowWall::execute(Robot *robot, Input *input, Output *output, double dt)
   //no need of pid; let vw control do it
   output->w = e;
 
-  if( abs(w) > 1 ) //控制拐弯速度？？
+  if( abs(e) > 1 ) //控制拐弯速度？？
   {
-    output->v = abs(w) * (0.1 - input->v)/2 + input->v;
+    output->v = abs(e) * (0.1 - input->v)/2 + input->v;
   }
 
   // Serial.print(e, 3);
