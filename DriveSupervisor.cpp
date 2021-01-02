@@ -5,6 +5,9 @@
 void sendBleMessages(byte *tmp, uint8_t len );
 void SendMessages(const char *format, ...);
 
+extern byte  info_required;
+
+extern long count1, count2;
 
 #define REG2RAD 0.017453292
 #define RAD2REG 57.2957795
@@ -21,16 +24,6 @@ DriveSupervisor::DriveSupervisor()
   ctrl_v = 0;
   target_theta = 0;
   keepTheta = false;
-  //  robot.setVel2PwmParam(0, 6.4141, 14.924); // vel to pwm parameters
-  //   robot.setVel2PwmParam(0,9.59,18.73);
-
-  robot.setIRSensorType(GP2Y0A21);
-
-  robot.setHaveIrSensor(0, true);
-  robot.setHaveIrSensor(1, true);
-  robot.setHaveIrSensor(2, true);
-  robot.setHaveIrSensor(3, true);
-  robot.setHaveIrSensor(4, true);
 
   mSimulateMode = false;
   mIgnoreObstacle = false;
@@ -89,6 +82,16 @@ void DriveSupervisor::setPIDParams(int type, double kp, double ki, double kd )
 void DriveSupervisor::setGoal(double v, double w)
 {
 
+  inTurnState = false;
+  m_state = s_DRIVE;
+
+  if( v == 0 && w == 0 )  //stop
+  {
+      target_theta = robot.theta;
+      m_Controller.reset();
+      m_state == S_STOP;
+  }
+
   if( ctrl_w != 0 && w == 0 )
   {
     keepTheta = true;
@@ -96,57 +99,37 @@ void DriveSupervisor::setGoal(double v, double w)
   }
   ctrl_v = v;
   ctrl_w = w;
-
   m_input.v = v;
   m_input.w = w;
-  // m_Controller.setGoal(v, w, robot.theta);
-  inTurnState = false;
-  m_state = s_DRIVE;
 }
 
-
-void DriveSupervisor::turnAround(int dir, int angle, bool useIMU, double yaw )
+void DriveSupervisor::turnAround(int dir, int angle, double w,  double yaw )
 {
-  // turnDir = dir;
-  
+
   targetTurnTheta = angle* REG2RAD;
   turnedTheta = 0;
   inTurnState = true;
-  ctrlTurnByIMU = useIMU;
-  if( useIMU )
-  {
-    targetYaw = yaw + angle * REG2RAD;
-    lastYaw = yaw;
-  }
-  else
-  {
-      targetYaw = robot.theta + angle* REG2RAD;
-      lastYaw = robot.theta;
-  }
+  ctrlTurnByIMU = false;
+
+  targetYaw = robot.theta + angle* REG2RAD;
+  lastYaw = robot.theta;
 
   if( targetYaw > PI )
     targetYaw = targetYaw - 2*PI;
 
-#define RAD2REG 57.2957795
+// #define RAD2REG 57.2957795
+  int ct = (int)(RAD2REG * robot.theta );
+  int cy = (int)(RAD2REG * yaw);
 
-  int ca = (int)(RAD2REG * lastYaw);
-  int ta = (int)(RAD2REG * targetYaw);
+  if( ct < 0 )
+    ct+=360;
 
-  if( ca < 0 )
-    ca+=360;
-  if( ta < 0 )
-    ta+= 360;
+  if( cy < 0 )
+    cy+=360;
 
-  SendMessages("-tl:%d,%d\n", ca, ta);
-
-  // Serial.print("-TL:");
-  // Serial.print(ca);
-  // Serial.print(", ");
-  // Serial.println( ta );
+  SendMessages("-tl:%d,%d;\n", ct, cy );
 
   m_state = S_TURN;
-
-  double w = 0.5;
   switch( dir )
   {
       case 0:
@@ -176,7 +159,14 @@ void DriveSupervisor::turnAround(int dir, int angle, bool useIMU, double yaw )
   }
   ctrl_v = m_input.v;
   ctrl_w = m_input.w;
-  
+
+}
+
+void DriveSupervisor::turnAround(int dir, int angle, bool useIMU, double yaw )
+{
+  // turnDir = dir;
+  turnAround(dir, angle, 0.8, yaw );
+
 }
 
 void DriveSupervisor::resetRobot()
@@ -217,6 +207,7 @@ void DriveSupervisor::reset(long leftTicks, long rightTicks)
 
     // m_DifController.reset();
 }
+
 
 
 void DriveSupervisor::update(long left_ticks, long right_ticks, double dt)
@@ -266,12 +257,14 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
     }
 
     delta_theta = atan2(sin(delta_theta), cos(delta_theta));
+    delta_theta = abs(delta_theta);
+
+    if( delta_theta > 0.78 )
+      delta_theta = 0; ////////////
     turnedTheta = turnedTheta + abs(delta_theta);
 
     // if( abs(yawErr) < 0.09 && curYaw != startYaw )
-
-    Serial.println(yawErr);
-
+    // Serial.println(yawErr);
     //0.075 弧度的分辨率
     if( abs( turnedTheta - targetTurnTheta ) < 0.09 || turnedTheta >= targetTurnTheta )
     {
@@ -279,14 +272,12 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
       inTurnState = false;
       StopMotor();
       m_state = S_STOP;
-
       // SendMessages("ta1:%d\n", turnedAngle);
       double endYaw = yaw;
-
       if( !mSimulateMode )
       {
         theta = robot.theta;
-        delay(300);
+        // delay(300);
         readCounter();
         robot.updateState(readLeftEncoder(), readRightEncoder(), yaw, dt);
         endYaw = robot.theta;
@@ -298,17 +289,20 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
       {
         endYaw = yaw; //
       }
-          
+
+      int ct = (int)(RAD2REG * robot.theta);   
       int ta = (int)(RAD2REG*turnedTheta);
-      int ea = (int)(RAD2REG*endYaw);
-      int er = (int)(RAD2REG*yawErr);
+      int cy = (int)(RAD2REG*yaw);
+
+      if( ct < 0 )
+        ct+=360;
       if( ta < 0 )
         ta+=360;
-      if( ea < 0 )
-        ea+= 360;
+      if( cy < 0 )
+        cy+= 360;
 
       Serial.println();
-      SendMessages("-tle:%d,%d,%d\n",ta, ea,er);
+      SendMessages("-tle:%d,%d,%d;\n",ct, cy, ta);
 
 
 
@@ -380,6 +374,9 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
   {
     m_left_ticks = m_left_ticks + robot.pwm_to_ticks_l( pwm_l, dt);
     m_right_ticks = m_right_ticks + robot.pwm_to_ticks_r(pwm_r, dt);
+
+    count1 = (long)m_left_ticks;
+    count2 = (long)m_right_ticks;
   }
   else
   {
@@ -387,9 +384,15 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
     MoveRightMotor(pwm_r);
   }
 
-  byte *ctrl_info = m_Controller.getCtrlInfo();
-  sendBleMessages(ctrl_info, 18);
-
+  if( info_required == 1 )
+  {
+    byte *ctrl_info = m_Controller.getCtrlInfo();
+    sendBleMessages(ctrl_info, 18);
+  }
+  else if( info_required == 2)
+  {
+    sendCounterInfo( (int)( dt * 1000) );
+  }
 
 }
 

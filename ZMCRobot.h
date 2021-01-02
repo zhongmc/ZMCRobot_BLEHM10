@@ -95,13 +95,14 @@ void setDriveGoal(double v, double w);
 void startDrive();
 
 
-void initMotor();
+void initMotor(byte mode);
 void initBluetooth();
 void checkSerialData();
 //ble cmd process
 void processSetingsRequire();
 // void sendRobotStateValue(byte stateType, Position pos, double irDistance[5], double voltage);
 void sendRobotStateValue(Position pos, double irDistance[5], double voltage);
+void sendRobotStateWithCounter(Position pos, double ultraDist, double voltage, int idt);
 
 void sendBalanceRobotStateValue(Position pos, double irDistance[5], double voltage);
 
@@ -113,6 +114,8 @@ void checkBLTL();
 
 //dir: 0 原地转，1：左轮转，2：右轮转； turnAngle：转动角度
 void turnAround(int dir, int turnAngle, bool useIMU );
+
+void turnAround(int dir, int turnAngle, double w);
 
 void setIMUFilter(int ifilter, bool withMag );
 void setUseIMU(bool val, float alpha);
@@ -133,6 +136,10 @@ const char *floatToStr(int idx, unsigned char width, unsigned char prec, double 
 Position getRobotPosition();
 double getYaw();
 
+void sendCounterInfo(int idt);
+
+void longToBytes(long value, byte *buf);
+long bytesToLong( byte *buf);
 // void showBatVoltage(float v);
 // void showBleState(int state ); //0 无设备, 1 有设备，未连接, 2  有设备，已连接;
 

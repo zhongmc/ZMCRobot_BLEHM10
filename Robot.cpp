@@ -27,8 +27,7 @@ void Robot::init(double R, double L, double ticksr, double minRpm, double maxRpm
   wheel_radius = R;           //0.065 / 2;
   wheel_base_length = L;      // 0.127;
   ticks_per_rev = ticksr; //20;
-  m_per_tick = 2 * PI * wheel_radius / ticks_per_rev;
-
+  
   max_rpm = maxRpm; //160; //267
   max_vel = max_rpm * 2 * PI / 60;
 
@@ -83,7 +82,6 @@ void Robot::setIRSensorType(SENSOR_TYPE sensorType)
 //     mSettings.dkd = settings.dkd;
 //     mSettings.dki = settings.dki;
 //     mSettings.dkp = settings.dkp;
-
 //   }
 
 // }
@@ -130,14 +128,12 @@ void Robot::updateSettings(SETTINGS settings)
     max_vel = max_rpm * 2 * PI / 60;
     min_rpm = settings.min_rpm; //113
     min_vel = min_rpm * 2 * PI / 60;
-    max_w = settings.max_w;
     pwm_diff = settings.pwm_diff;
 
     mSettings.radius = wheel_radius;
     mSettings.length = wheel_base_length;
     mSettings.min_rpm = min_rpm;
     mSettings.max_rpm = max_rpm;
-    mSettings.max_w = max_w;
 
     mSettings.atObstacle = settings.atObstacle;
     mSettings.unsafe = settings.unsafe;
@@ -241,29 +237,23 @@ void Robot::updateState(long left_ticks, long right_ticks, double yaw,  double d
   // vel_l = 2 * PI * vel_l;
   // vel_r = 2 * PI * vel_r;
 
-  d_left = (left_ticks - prev_left_ticks) * m_per_tick;
-  d_right = (right_ticks - prev_right_ticks) * m_per_tick;
+  double perimeter = 2*PI * wheel_radius;
+  d_left = (left_ticks - prev_left_ticks) * perimeter / (double)ticks_per_rev;
+  d_right = (right_ticks - prev_right_ticks) * perimeter / (double)ticks_per_rev;
 
-  vel_l = (d_left /dt*wheel_radius);
-  vel_r = (d_right /dt*wheel_radius);
+  vel_l = (2*PI*(left_ticks - prev_left_ticks)/dt)/ ticks_per_rev;
+  vel_r = (2*PI*(right_ticks - prev_right_ticks)/dt)/ ticks_per_rev;
+  
+  // vel_l = (d_left /(dt*wheel_radius);
+  // vel_r = (d_right /(dt*wheel_radius);
 
   prev_left_ticks = left_ticks;
   prev_right_ticks = right_ticks;
 
   d_center = (d_right + d_left) / 2;
   velocity = d_center / dt;
-  double phi;
-  
-  if( abs(d_right) > abs(d_left) )
-  {
-    phi = (d_right - d_left)/wheel_base_length;
-  }
-  else
-  {
-    phi = (d_right - d_left)/wheel_base_length;
-  }
-  
-
+  double phi = (d_right - d_left)/wheel_base_length;
+ 
   if( mSettings.useIMU )
   {
     double alpha = 0;
@@ -282,10 +272,10 @@ void Robot::updateState(long left_ticks, long right_ticks, double yaw,  double d
   else
   {
     w = phi / dt;
-    // x = x + d_center * cos(theta + phi/2);
-    // y = y + d_center * sin(theta + phi/2);
     x = x + d_center * cos(theta);
     y = y + d_center * sin(theta);
+    // x = x + d_center * cos(theta);
+    // y = y + d_center * sin(theta);
     theta = theta + phi;
     theta = atan2(sin(theta), cos(theta));
   }
@@ -328,11 +318,9 @@ void Robot::updateState(long left_ticks, long right_ticks, double dt)
   vel_l = 2 * PI * vel_l;
   vel_r = 2 * PI * vel_r;
 
- 
-  d_left = (left_ticks - prev_left_ticks) * m_per_tick;
-  d_right = (right_ticks - prev_right_ticks) * m_per_tick;
-
-
+  double perimeter = 2*PI * wheel_radius;
+  d_left = (left_ticks - prev_left_ticks) * perimeter / (double)ticks_per_rev;
+  d_right = (right_ticks - prev_right_ticks) * perimeter / (double)ticks_per_rev;
 
   prev_left_ticks = left_ticks;
   prev_right_ticks = right_ticks;
@@ -340,18 +328,7 @@ void Robot::updateState(long left_ticks, long right_ticks, double dt)
   d_center = (d_right + d_left) / 2;
   velocity = d_center / dt;
 
-  double phi;
-
-  if( abs(d_right) > abs(d_left) )
-  {
-    phi = (d_right - d_left)/wheel_base_length;
-  }
-  else
-  {
-    phi = (d_right - d_left)/wheel_base_length;
-  }
-
-  // double phi = (d_right - d_left) / wheel_base_length;
+  double phi = (d_right - d_left) / wheel_base_length;
 
   w = phi / dt;
 
@@ -370,18 +347,11 @@ void Robot::readIRSensors(double dt)
 
   for (int i = 0; i < 5; i++)
   {
-    if (haveIrSensor[i] != 0 )
+    if (haveIrSensor[i] == 1 || haveIrSensor[i] == 3 ) //0, 1, 2, 3
       irSensors[i]->readPosition();
   }
 
   double maxDis = velocity * dt;
-
-  for (int i = 0; i < 5; i++)
-  {
-    //如果读入的障碍物距离突变（大于速度*时间），重新读入
-    if ((haveIrSensor[i] != 0 ) && abs(irSensors[i]->lastDistance - irSensors[i]->distance) > maxDis)
-      irSensors[i]->readPosition();
-  }
 
   if (haveIrSensor[2] == 2)
   {
@@ -391,15 +361,7 @@ void Robot::readIRSensors(double dt)
   {
     irSensors[2]->setDistance((ultrasonicDistance + irSensors[2]->distance) / 2);
   }
-  // if (haveIrSensor[2] && irSensors[2]->distance >= irSensors[2]->getMaxDistance())
-  // {
-  //   irSensors[2]->setDistance(ultrasonicDistance);
-  // }
-  // else if (!haveIrSensor[2])
-  // {
-  //   irSensors[2]->setDistance(ultrasonicDistance);
-  // }
-
+ 
   for (int i = 0; i < 5; i++)
     irSensors[i]->applyGeometry(x, y, sinTheta, cosTheta);
 }
@@ -478,6 +440,70 @@ double Robot::getObstacleDistance()
 }
 
 
+//浮动，保证W的方式转弯，大W转弯时会加速
+Vel Robot::ensure_w(double v, double w)
+{
+  Vel vel;
+  double R = wheel_radius, L = wheel_base_length;
+  double vel_l, vel_r;
+  if( abs(v) > 0 )
+  {
+    double v_lim = max( min(abs(v), (R/2)*(2*max_vel)),  (R/2)*(2*min_vel));
+    double w_lim = max(min(abs(w), (R/L)*(max_vel-min_vel)), 0);
+
+    double vel_r_d, vel_l_d;
+    vel_r_d = (2 * v_lim + w_lim * L) / (2 * R);
+    vel_l_d = (2 * v_lim - w_lim * L) / (2 * R);
+
+    double vel_rl_max = max(vel_r_d, vel_l_d);
+    double vel_rl_min = min( vel_r_d, vel_l_d );
+    if( vel_rl_max > max_vel )
+    {
+      vel_r = vel_r_d - (vel_rl_max - max_vel);
+      vel_l = vel_l_d - (vel_rl_max - max_vel);
+    }
+    else if( vel_rl_min < min_vel )
+    {
+      vel_r = vel_r_d + (min_vel - vel_rl_min);
+      vel_l = vel_l_d + (min_vel - vel_rl_min);
+    }
+    else
+    {
+      vel_r = vel_r_d;
+      vel_l = vel_l_d;
+    }
+    
+    double v_shift = (vel_l + vel_r)*R/2;
+    double w_shift = (vel_r - vel_l)*R/L;
+
+    if( v < 0 )
+      v_shift = -v_shift;
+    if( w < 0 )
+      w_shift = -w_shift;
+
+    vel_r = (2 * v_shift + w_shift * L) / (2 * R);
+    vel_l = (2 * v_shift - w_shift * L) / (2 * R);
+  }
+  else
+  {
+    if( abs(w) < (R/L*(2*min_vel)))
+    {
+      vel_r = 0;
+      vel_l = 0;
+    }
+    else
+    {
+      vel_r = (w * L) / (2 * R);
+      vel_l = (-w * L) / (2 * R);
+    }
+
+  }
+
+  vel.vel_l = vel_l;
+  vel.vel_r = vel_r;
+  return vel;
+}
+
 
 //用单边减速的方式转弯；uni_to_diff 采用的是一边加，一边减的方式，速度不变，容易冲
 Vel Robot::uni_to_diff_oneside(double v, double w)
@@ -486,9 +512,9 @@ Vel Robot::uni_to_diff_oneside(double v, double w)
   Vel vel;
   double wv = (w*wheel_base_length)/(2*wheel_radius);
 
-  double minVel = 1.2*min_vel;
+  double minVel = min_vel;
 
-  if( abs(v) <= 0.001 )
+  if( v == 0 ) //原地转圈
   {
     double wvel = wv;
     if( abs(wv) < minVel )
@@ -521,6 +547,10 @@ Vel Robot::uni_to_diff_oneside(double v, double w)
       vel.vel_l = vvel - wv*2;
       if( vel.vel_l * v < 0 )
         vel.vel_l = 0;
+      if( abs(vvel) < abs(wv) )
+      {
+          vel.vel_r = wv;
+      }
   }
   else
   {
@@ -528,6 +558,11 @@ Vel Robot::uni_to_diff_oneside(double v, double w)
       vel.vel_r = vvel + wv*2;
       if( vel.vel_r * v < 0 )
         vel.vel_r = 0;
+
+      if( abs(vvel) < abs(wv) )
+      {
+          vel.vel_l = wv;
+      }
   }
 
   return vel;
@@ -544,66 +579,183 @@ Vel Robot::uni_to_diff(double v, double w)
   return vel;
 }
 
+// 双边加减，小的为0(小于min_vel)
   Vel Robot::uni_to_diff_v(double v, double w )
   {
     Vel vel;
-    if( abs(v) <= 0.001 )
-    {
+
       vel.vel_r = (2 * v + w * wheel_base_length) / (2 * wheel_radius);
       vel.vel_l = (2 * v - w * wheel_base_length) / (2 * wheel_radius);
-      return vel;
-    }
 
-    double vvel = v/wheel_radius;
-    if( abs(vvel) < 1.2*min_vel )
+    if( abs(v) > 0 )
     {
-        if( v < 0 )
-          vvel =  -1.2*min_vel;
+
+      if( abs(vel.vel_r) < min_vel )
+      {
+        vel.vel_r = 0;
+      }
+      else if( abs(vel.vel_l) < min_vel )
+      {
+        vel.vel_l = 0;
+      }
+
+      if( abs(vel.vel_r) > max_vel )
+      {
+        if( vel.vel_r > 0 )
+          vel.vel_r = max_vel;
         else
         {
-          vvel =  1.2*min_vel;
+          vel.vel_r = -max_vel;
         }
-         
-    }
-
-    vel.vel_l = vvel;
-    vel.vel_r = vvel;
-
-
-    double wv =  ( w * wheel_base_length) / (2 * wheel_radius);
-    if( w < 0 )
-    {
-      if( v < 0 )
-      {
-          vel.vel_l = vel.vel_l - wv;
-          if( vel.vel_l > 0 )
-            vel.vel_l = 0;
+        
       }
-      else
+      else if( abs(vel.vel_l) > max_vel )
       {
-          vel.vel_r = vel.vel_r + wv;
-          if( vel.vel_r < 0 )
-            vel.vel_r = 0;
-      }      
+        if( vel.vel_l > 0 )
+          vel.vel_l = max_vel;
+        else
+        {
+          vel.vel_l = -max_vel;
+        }
+
+      }
     }
     else
     {
-      if( v < 0 )
+        if( abs(vel.vel_l) < min_vel )
+        {
+          if( vel.vel_l < 0 )
+          {
+            vel.vel_l = -min_vel;
+            vel.vel_r = min_vel;
+          }
+          else
+          {
+            vel.vel_l = min_vel;
+            vel.vel_r = -min_vel;
+            
+          }
+          
+        } 
+
+        else if( abs(vel.vel_l ) > max_vel/2) 
+        {
+          if( vel.vel_l < 0 )
+          {
+            vel.vel_l = -max_vel/2;
+            vel.vel_r = max_vel/2;
+
+          }
+          else
+          {
+            
+            vel.vel_l = max_vel/2;
+            vel.vel_r = -max_vel/2;
+          }
+        }    
+    }
+    return vel;
+  }    
+
+// 双向，小的 min_vel;
+  Vel Robot::uni_to_diff_velmin(double v, double w )
+  {
+    Vel vel;
+
+    vel.vel_r = (2 * v + w * wheel_base_length) / (2 * wheel_radius);
+    vel.vel_l = (2 * v - w * wheel_base_length) / (2 * wheel_radius);
+
+    if( abs(v) > 0 )  
+    {
+
+      double minVel = min(abs(vel.vel_l), abs(vel.vel_r));
+      double maxVel = max(abs(vel.vel_l), abs(vel.vel_r));
+      double vel_h, vel_l;
+      vel_l = minVel;
+      vel_h = maxVel;
+      if( minVel < min_vel )
       {
-          vel.vel_r = vel.vel_r + wv;
-          if( vel.vel_r > 0 )
-            vel.vel_r = 0;
+          vel_l = min_vel;
+          vel_h = maxVel - ( min_vel - minVel ); //保证拐弯时不放大速度
+      }
+
+      if( maxVel > max_vel )
+      {
+        if( vel_h > max_vel )
+          vel_h = max_vel;
+        if( vel_l > min_vel )
+        {
+          vel_l = vel_l - (maxVel - max_vel);
+          if( vel_l < min_vel)
+            vel_l = min_vel;
+        }
+      }
+
+      if( abs(vel.vel_l) < abs(vel.vel_r) )
+      {
+          if( v < 0 )
+          {
+            vel.vel_l = -vel_l;
+            vel.vel_r = -vel_h;
+          }
+          else
+          {
+            vel.vel_l = vel_l;
+            vel.vel_r = vel_h;
+          }
+          
       }
       else
       {
-          vel.vel_l = vel.vel_l - wv;
+          if( v < 0 )
+          {
+            vel.vel_l = -vel_h;
+            vel.vel_r = -vel_l;
+          }
+          else
+          {
+            vel.vel_l = vel_h;
+            vel.vel_r = vel_l;
+          }
+      }
+    }
+    else  //v = 0;
+    {
+        if( abs(vel.vel_l) < min_vel )
+        {
           if( vel.vel_l < 0 )
-            vel.vel_l = 0;
-      }      
+          {
+            vel.vel_l = -min_vel;
+            vel.vel_r = min_vel;
+          }
+          else
+          {
+            vel.vel_l = min_vel;
+            vel.vel_r = -min_vel;
+            
+          }
+          
+        } 
+
+        else if( abs(vel.vel_l ) > max_vel/2) 
+        {
+          if( vel.vel_l < 0 )
+          {
+            vel.vel_l = -max_vel/2;
+            vel.vel_r = max_vel/2;
+
+          }
+          else
+          {
+            
+            vel.vel_l = max_vel/2;
+            vel.vel_r = -max_vel/2;
+          }
+        }    
     }
     return vel;
+  }    
 
-  }
 
 
 Output Robot::diff_to_uni(double vel_l, double vel_r)
@@ -616,7 +768,7 @@ Output Robot::diff_to_uni(double vel_l, double vel_r)
     return out;
   }
   else
-    out.v = wheel_radius / 2 * (vel_l + vel_r);
+    out.v = (vel_l + vel_r)*wheel_radius / 2;
 
   if (vel_r - vel_l == 0)
   {
@@ -624,7 +776,7 @@ Output Robot::diff_to_uni(double vel_l, double vel_r)
     out.w = PI / 2;
   }
   else
-    out.w = wheel_radius / wheel_base_length * (vel_r - vel_l);
+    out.w =(vel_r - vel_l)* wheel_radius /wheel_base_length ;
 
   return out;
 }

@@ -215,7 +215,7 @@ protected:
         wire->write(subAddress);           // Put slave register address in Tx buffer
         wire->write(data);                 // Put data in Tx buffer
         i2c_err_ = wire->endTransmission();           // Send the Tx buffer
-        if (i2c_err_) pirntI2CError();
+        if (i2c_err_) printI2CError();
     }
 
     uint8_t readByte(uint8_t address, uint8_t subAddress)
@@ -224,7 +224,7 @@ protected:
         wire->beginTransmission(address);         // Initialize the Tx buffer
         wire->write(subAddress);	                 // Put slave register address in Tx buffer
         i2c_err_ = wire->endTransmission(false);        // Send the Tx buffer, but send a restart to keep connection alive
-        if (i2c_err_) pirntI2CError();
+        if (i2c_err_) printI2CError();
         wire->requestFrom(address, (size_t)1);  // Read one byte from slave register address
         if (wire->available()) data = wire->read();                      // Fill Rx buffer with result
         return data;                             // Return data read from slave register
@@ -235,7 +235,7 @@ protected:
         wire->beginTransmission(address);   // Initialize the Tx buffer
         wire->write(subAddress);            // Put slave register address in Tx buffer
         i2c_err_ = wire->endTransmission(false);  // Send the Tx buffer, but send a restart to keep connection alive
-        if (i2c_err_) pirntI2CError();
+        if (i2c_err_) printI2CError();
         uint8_t i = 0;
         wire->requestFrom(address, count);  // Read bytes from slave register address
         while (wire->available())
@@ -244,7 +244,7 @@ protected:
         } // Put read results in the Rx buffer
     }
 
-    void pirntI2CError()
+    void printI2CError()
     {
         if (i2c_err_ == 7) return; // to avoid stickbreaker-i2c branch's error code
         Serial.print("I2C ERROR CODE : ");

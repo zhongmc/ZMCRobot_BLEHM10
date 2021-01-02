@@ -25,6 +25,8 @@ extern bool mROSConnected;
 extern double batteryVoltage;
 extern int sampleTime;
 
+byte  info_required = 0;  //0 none 1 ctrlInfo 2 count info
+ 
 
 #define SERIAL 0
 #define BLE 1
@@ -159,13 +161,31 @@ void processCommand(char *buffer, int bufferLen, int src)
 
     Robot *robot = supervisor.getRobot();
 
-    SendMessages("_OK_:XYQ:%s,%s,%s :%d;\n", 
+    SendMessages("_OK_:%s,%s,%s :%d;\n", 
           floatToStr(0, robot->x),
           floatToStr(1, robot->y),
           floatToStr(2, robot->theta),
           loopExecuteTime
           );
 
+    // long l1,l2;
+    // int d1,d2;
+    // l1 = (long)(10000*robot->wheel_radius);
+    // l2 = (long)(10000*robot->wheel_base_length);
+    // d1 = (int)l1;
+    // d2 = (int)l2;
+
+    long dcenter = 40;
+
+    double theta = dcenter*2*PI*robot->wheel_radius/(robot->wheel_base_length * robot->ticks_per_rev);
+
+
+    SendMessages("_rl-:%d,%d,%d;\n", 
+          (int)(10000*robot->wheel_radius),
+          (int)(10000*robot->wheel_base_length),
+          (int)(10000*theta)
+          );
+  
 
   }
   else if (ch0 == 's' && ch1 == 't') //stop
@@ -180,8 +200,31 @@ void processCommand(char *buffer, int bufferLen, int src)
   }
   else if( ch0 == 'i' && ch1 =='c') //read i2c counter;
   {
+    long beg = micros();
     readCounter();
+    int dt = micros() - beg;
     printCountInfo();
+    delay(20);
+    sendCounterInfo(dt);
+  }
+
+  else if (ch0 == 'r' && ch1 == 'i') //require for info 0 none 1 ctrlInfo 2 counter
+  {
+    int val = atoi(buffer + 2);
+    info_required = val;
+    SendMessages("_info %d;", val);
+  }
+  else if( ch0 =='i' && ch1 == 'p')
+  {
+    Position pos = readPosition();
+
+    SendMessages("_XYQ:%s,%s,%s;\n", 
+          floatToStr(0, pos.x),
+          floatToStr(1, pos.y),
+          floatToStr(2, pos.theta)
+          );
+
+
   }
 
   // else if (ch0 == 'm' && ch1 == 'l') // move left motor
@@ -288,7 +331,7 @@ void processCommand(char *buffer, int bufferLen, int src)
     sett.atObstacle = atof( ptrs[5] );
     sett.dfw = atof( ptrs[6] );
     sett.unsafe = atof( ptrs[7] );
-    sett.max_w = atof( ptrs[8] ); 
+    // sett.max_w = atof( ptrs[8] ); 
    
     // sscanf(buffer+2, "%i,%i,%f,%f,%f,%f,%f,%f", &sett.min_rpm, &sett.max_rpm, &sett.radius, 
     //           &sett.length, &sett.atObstacle, &sett.dfw, 
@@ -305,7 +348,7 @@ void processCommand(char *buffer, int bufferLen, int src)
     Serial.print(',');
     Serial.print(sett.unsafe, 4);
     Serial.print(',');
-    Serial.println(sett.max_w, 4);
+    Serial.println(0, 4);
 
     
     sett.sType = 0;
@@ -335,18 +378,17 @@ void processCommand(char *buffer, int bufferLen, int src)
     int angle = 360;
     bool useIMU = false;
     char *buf = strchr(buffer, ',');
+    double w = 0.8;
     if (buf != NULL)
     {
       angle = atof(buf + 1);
       buf = strchr(buf+1, ',');
       if( buf != NULL )
       {
-        int val = atoi( buf+1);
-        if( val != 0 )
-          useIMU = true;
+        w = atof( buf+1);
       }
     }
-    turnAround(dir, angle, useIMU);
+    turnAround(dir, angle, w);
   }
   // else if (ch0 == 'm' && ch1 == 'g') //go to goal
   // {
@@ -584,85 +626,41 @@ void speedTest(int pwm0, int pwm1, int step)
 
 void motorSpeed(int pwml, int pwmr)
 {
-  long c1, c2, lt;
+  long c1, c2, lt, ct, bt;
+  lt = millis();
   MoveLeftMotor(pwml);
   MoveRightMotor(pwmr);
 
-  SendMessages("-%d,%d,", pwml, pwmr);
+  int cnt = 0;
+  SendMessages("-mm %d,%d;\n", pwml, pwmr);
 
-  // Serial.print(pwm);
-  // Serial.print(',');
-  delay(500);
-  c1 = count1;
-  c2 = count2;
-  lt = millis();
-  delay(1000);
-  lt = millis() - lt;
+  c1 = 0;
+  while( true )
+  {
+    BLEHM10Loop();
+    ct = millis();
+    if( ct - lt < 40)
+      continue;
+    readCounter();
+    cnt++;
+    if( c1==0 && cnt >= 25 )
+    {
+      bt = ct;
+      c1 = count1;
+      c2 = count2;
+    }
+    sendCounterInfo( ct-lt );
+    lt = ct;
+    if( cnt >= 50 )
+      break;
+  }
 
   int cc1 = count1 - c1;
   int cc2 = count2 - c2;
-  SendMessages("%d,%d,%d\n", lt, cc1, cc2);
+  SendMessages("%d,%d,%d;\n", (int)(lt - bt), cc1, cc2);
   // log("%d,%d,%d\n", lt, c1, c2);
 }
 
-
-/**
-void turnAround(int pwm, int stopCount)
-{
-  // Serial.print("TR:");
-  // Serial.println(pwm);
-  unsigned int c1, c2;
-
-  c1 = count1;
-  c2 = count2;
-  log("TR:%d, %d, %d;\n", pwm, c1, c2);
-
-  if (pwm > 0)
-  {
-    count1 = 0;
-    MoveLeftMotor(pwm);
-  }
-  else
-  {
-    count2 = 0;
-    MoveRightMotor(-pwm);
-  }
-
-  while (true)
-  {
-    if ((pwm > 0 && count1 > stopCount) || (pwm < 0 && count2 > stopCount))
-    // if (count1 > 1700 || count2 > 1700)
-    {
-      StopMotor();
-      break;
-    }
-    delay(50);
- //   log("TR:%d, %d, %d;\n", pwm, count1, count2);
-  }
-
-  delay(100);
-
-  c1 = count1;
-  c2 = count2;
-  log("ci:%d,%d;\n", c1, c2);
-}
-
-*/
-
-// void manuaGoal()
-// {
-//   count1 = 0;
-//   count2 = 0;
-//   MoveMotor(90);
-//   delay(3000);
-//   StopMotor();
-//   delay(500);
-//   log("%d,%d", count2, count2);
-
-//   // Serial.print(count1);
-//   // Serial.print(',');
-//   // Serial.println(count2);
-// }
 
 void getDoubleValues(char *buffer, int c, double *fvs)
 {

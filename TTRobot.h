@@ -7,8 +7,6 @@
 class TTRobot :public Robot{
     public:
         TTRobot();
-
-        Vel ensure_w(double v, double w);
         double vel_l_to_pwm( double vel);
         double vel_r_to_pwm( double vel);
 

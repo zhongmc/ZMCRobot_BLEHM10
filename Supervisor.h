@@ -6,6 +6,7 @@
 #include "Controller.h"
 #include "Robot.h"
 #include "RearDriveRobot.h"
+#include "BalanceRobot.h"
 
 #include "GoToGoal.h"
 #include "AvoidObstacle.h"
@@ -163,12 +164,9 @@ private:
   SlidingMode m_SlidingMode;
 
   VWDriveController m_DriveCtrl;
-  // DifferencialController m_DiffCtrl;
-
-  // Robot robot;
-
   RearDriveRobot robot;
-
+  // BalanceRobot robot;
+  
   Controller *m_currentController;
 
   double d_fw; //distance to follow wall

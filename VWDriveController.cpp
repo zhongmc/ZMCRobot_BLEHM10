@@ -19,6 +19,8 @@ void VWDriveController::reset()
 {
   lastError = 0;
   lastErrorIntegration = 0;
+  lastVError = 0;
+  lastVErrorIntegration = 0;
   m_w = 0;
   m_v = 0;
 }
@@ -78,7 +80,7 @@ void VWDriveController::execute(Robot *robot, Input *input, Output *output, doub
         return;
       }
 
-      if( abs(m_w) > 0.3 )
+      if( abs(m_w) > 0.4 )
       {
         lastErrorIntegration = 0;
         lastError = 0;
@@ -100,11 +102,14 @@ void VWDriveController::execute(Robot *robot, Input *input, Output *output, doub
  
     ctrl_v = output->v;
     ctrl_w = output->w;
-    Vel vel = robot->uni_to_diff_oneside(ctrl_v, ctrl_w); //uni_to_diff_v(sv, sw);
-    if( abs(m_v) <= 0.001 )
+    // Vel vel = robot->uni_to_diff_oneside(ctrl_v, ctrl_w);
+    // Vel vel = robot->ensure_w(ctrl_v, ctrl_w); 
+
+    Vel vel = robot->uni_to_diff_velmin(ctrl_v, ctrl_w); 
+    if( m_v == 0 )
     {
 
-      double dif = robot->vel_l + robot->vel_r;  //控制左右一致的转速
+      double dif =1.5*( robot->vel_l + robot->vel_r);  //控制左右一致的转速
       if( dif * vel.vel_l > 0 ) //1. vel_l < 0 dif <0 vel_r = vel_r - dif; 2. vel_l > 0 dif > 0 vel_r - dif
       {
         vel.vel_r = vel.vel_r - dif;
@@ -143,7 +148,9 @@ void VWDriveController::execute(Robot *robot, Input *input, Output *output, doub
       ctrl_v = input->v + vkp * e;
       if( ctrl_v * m_v < 0 ) //不能倒车的方式减速
         ctrl_v = 0;
-      vel = robot->uni_to_diff_oneside(ctrl_v, ctrl_w); //uni_to_diff_v(sv, sw);
+      // vel = robot->uni_to_diff_oneside(ctrl_v, ctrl_w); 
+      // vel = robot->ensure_w(ctrl_v, ctrl_w); 
+      vel = robot->uni_to_diff_velmin(ctrl_v, ctrl_w); 
       output->vel_l = vel.vel_l;
       output->vel_r = vel.vel_r; 
   }

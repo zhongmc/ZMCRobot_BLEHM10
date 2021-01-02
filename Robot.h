@@ -55,7 +55,6 @@ typedef struct
   int max_rpm, min_rpm;
   //轮子半径，轮距
   double radius, length;
-  double max_w;
   
   bool useIMU, irFilter;
   double imuAlpha, irAlpha;
@@ -78,9 +77,10 @@ public:
   double prev_yaw;
 
 
-  virtual PWM_OUT getPWMOut(double v, double w) = 0;
+  // virtual PWM_OUT getPWMOut(double v, double w) = 0;
+  
+  Vel ensure_w(double v, double w);
 
-  virtual Vel ensure_w(double v, double w) = 0;
   virtual double vel_l_to_pwm(double vel) = 0;
   virtual double vel_r_to_pwm(double vel) = 0;
 
@@ -131,7 +131,8 @@ public:
   void reset(long left_ticks, long right_ticks);
   Vel uni_to_diff(double v, double w);
   Vel uni_to_diff_v(double v, double w );
-
+  Vel uni_to_diff_velmin(double v, double w );
+  
   Vel uni_to_diff_oneside(double v, double w);
   
   Output diff_to_uni(double vel_l, double vel_r);
@@ -164,11 +165,6 @@ public:
   double max_rpm;
   double min_rpm;
   
-  double max_w;  //the rotate /turn arround limit 
-
-  // double max_v, min_v;
-  // double max_w, min_w;
-
 //balance 
   double angle;
   double gyro;
@@ -182,7 +178,6 @@ protected:
   IRSensor *irSensors[5];
 
 private:
-  double m_per_tick;
   long prev_left_ticks, prev_right_ticks;
 };
 

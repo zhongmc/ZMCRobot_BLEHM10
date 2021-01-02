@@ -65,6 +65,48 @@ void floatToByte(byte *arrayBuf, double val, double scale)
 }
 
 byte bleStCnt = 0;
+byte pkgIdx = 0;
+unsigned long lastBLEStateSend; 
+
+void sendRobotStateWithCounter(Position pos, double ultraDist, double voltage, int idt)
+{
+ 
+  byte buf[20];
+  memset(buf, 0, 20);
+
+  buf[0] = 0xA1;  //A为二进制报文标志，1 为报文类型
+  buf[1] = 18;   //长度
+  
+  buf[18] = pkgIdx;
+  buf[19] = (byte)idt;
+  
+  double scale = 1000;
+  floatToByte(buf + 2, pos.x, scale);
+  floatToByte(buf + 4, pos.y, scale);
+  floatToByte(buf + 6, pos.theta, scale);
+  buf[8] = (int)(100.0 * ultraDist);
+  buf[9] = (byte)(int)(10.0 * voltage);
+
+  longToBytes(count1, buf + 10);
+  longToBytes(count2, buf + 14);
+
+  for (int i = 0; i < 20; i++)
+  {
+     Serial.write(*(buf + i));
+  }
+  Serial.flush();
+
+  int bleInterval = millis() - lastBLEStateSend;
+  bleStCnt++;
+
+  if( bleInterval >= 50 || bleStCnt >= 3)
+  {
+    pkgIdx++;
+    bleStCnt = 0;
+    lastBLEStateSend = millis();
+    sendBleMessages( buf, 20);
+  }
+}
 
 // x, y, theta, v, d0,d1,d2,d3,d4,voltage
 void sendRobotStateValue( Position pos, double irDistance[5], double voltage)
@@ -94,11 +136,14 @@ void sendRobotStateValue( Position pos, double irDistance[5], double voltage)
      Serial.write(*(buf + i));
   }
   Serial.flush();
-
   bleStCnt++;
-  if( bleStCnt >= 3)
+
+  int bleInterval = millis() - lastBLEStateSend;
+
+  if( bleInterval >= 50 || bleStCnt >= 3)
   {
     bleStCnt = 0;
+    lastBLEStateSend = millis();
     sendBleMessages( buf, 15);
   }
 }
@@ -124,7 +169,7 @@ void SendSettings()
           floatToStr(2, sett.atObstacle),
           floatToStr(3, sett.dfw ),
           floatToStr(4, sett.unsafe ),
-          floatToStr(5, sett.max_w )
+          floatToStr(5, 0.0 )  //max_w
           );
 
     delay(10);

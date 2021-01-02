@@ -3,8 +3,14 @@
 #include "ZMCRobot.h"
 #include "utils.h"
 
+
+
+
 void sendBleMessages(byte *tmp, uint8_t len );
 
+//defined in motor.
+extern byte *counterBuf;
+extern byte  info_required;
 
 #define MAX_IRSENSOR_DIS 0.3
 
@@ -183,16 +189,16 @@ void Supervisor::setRobotPosition(double x, double y, double theta)
 void Supervisor::setSimulateMode(int val)
 {
   mSimulateMode = (val == 1 );
-  if (val != 0 )
-  {
-    for (int i = 0; i < 5; i++)
-      setHaveIRSensor(i, 0);
-  }
-  else
-  {
-    for (int i = 0; i < 5; i++)
-      setHaveIRSensor(i, 1);
-  }
+  // if (val != 0 )
+  // {
+  //   for (int i = 0; i < 5; i++)
+  //     setHaveIRSensor(i, 0);
+  // }
+  // else
+  // {
+  //   for (int i = 0; i < 5; i++)
+  //     setHaveIRSensor(i, 1);
+  // }
   
 }
 
@@ -310,15 +316,23 @@ void Supervisor::execute(long left_ticks, long right_ticks, double yaw, double d
   {
     m_left_ticks = m_left_ticks + robot.pwm_to_ticks_l(pwm_l, dt);
     m_right_ticks = m_right_ticks + robot.pwm_to_ticks_r(pwm_r, dt);
+
+    
   }
   else
   {
     MoveLeftMotor(pwm_l);
     MoveRightMotor(pwm_r);
   }
-
-  byte *ctrl_info = m_DriveCtrl.getCtrlInfo();
-  sendBleMessages(ctrl_info, 18);
+  if( info_required == 1 )
+  {
+    byte *ctrl_info = m_DriveCtrl.getCtrlInfo();
+    sendBleMessages(ctrl_info, 18);
+  }
+  else if( info_required == 2)
+  {
+    sendCounterInfo( (int)( dt * 1000) );
+  }
 
 //  log("RP%d,%d,%d,%d,%d\n",
 //       (int)(1000 * robot.x),

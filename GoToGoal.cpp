@@ -49,6 +49,7 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
     {
       StopMotor();
       output->w = 0;
+      state = 0;
       return;
     }
 
@@ -56,7 +57,20 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
     return;
   }
 
-  output->v = input->v;
+  if( state == 2)
+  {
+    output->v = 0;
+    e = theta_g - robot->theta;
+    e = atan2(sin(e), cos(e));
+    if( abs(e) > 0.1 )
+    {
+      output->w = e;
+      return;
+    }
+    state = 0;
+  }
+
+  output->v = input->v - (input->v - robot->velocity )/3; //
   e = theta_g - robot->theta;
   e = atan2(sin(e), cos(e));
   e_D = (e - lastError) / dt;
@@ -68,9 +82,18 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
   //no need of pid; let vw control do it
   output->w = e;
 
+  if( abs(e) > 0.5 )
+  {
+    state = 2;
+    output->v = 0;
+    return;
+  }
+
   if( d < 0.3 && d > 0.03)
   {
-    output->v = d *(input->v - 0.09)/0.3 + 0.09;
+    output->v = d *(input->v - 0.05)/0.3 + 0.05;
+    if( output->v < 0 )
+      output->v = 0;
   }
 
   if( d > DISTANCE_GOAL )
@@ -94,7 +117,11 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
 
 bool GoToGoal::isAtGoal(Robot *robot, Input *input )
 {
-  if( state == 1 )
+  double u_x = input->x_g - robot->x;
+  double u_y = input->y_g - robot->y;
+  double d = sqrt(pow(u_x, 2) + pow(u_y, 2));
+
+  if( d <= DISTANCE_GOAL)
   {
     if (abs(robot->theta - input->targetTheta ) < 0.06) // min_vel w = 1.0 * 0.03 = 0.03;最小控制精度
     {

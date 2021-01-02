@@ -9,7 +9,6 @@ class RearDriveRobot : public Robot
 public:
   RearDriveRobot();
 
-  Vel ensure_w(double v, double w);
   PWM_OUT getPWMOut(double v, double w);
 
   double vel_l_to_pwm(double vel);

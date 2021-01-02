@@ -16,11 +16,18 @@
 //#include "MyKey.h"
 //#include "MyMenu.h"
 
+
+
 #define VOLT_IN_PIN A0
 #define ULTRASONIC_ECHO 18  //2,3,18,19(serial 1), 20, 21(I2C) external interrupt
 #define ULTRASONIC_TRIG 12
 
 #define MELODY_PIN 48
+
+#define BUZZ_TONE 1
+#define BUZZ_NOTONE 0
+
+#define BUZZER 1
 
 
 void sendIMURawData();
@@ -86,8 +93,9 @@ void setup()
   Serial.begin(115200);
   delay(100);
 
-  initAsMaster();
-  // initMotor();
+  // initAsMaster();
+  initMotor(1);   // 0 normal 1 as master 2 as slave
+  // initBlueTooth( 115200 );
   initBluetooth();
 
   mIMU.init( 10 );  //gyroRate (sample frenquence)
@@ -167,8 +175,6 @@ void loop()
   //ultrasonic process
   processUltrasonic();
   unsigned long millisNow;
-  millisNow = millis();
-
   if( mIMUDataOk )
   {
     imuCycle = millisNow - prevImuMillis;
@@ -186,9 +192,11 @@ void loop()
 
   }
 
+  millisNow = millis();
   if ( (millisNow - prevSampleMillis) >= sampleTime ) 
   {
-      double dt = (double)(millisNow -  prevSampleMillis )/1000.0;
+    int idt = millisNow -  prevSampleMillis;
+      double dt = (double)idt/1000.0;
        prevSampleMillis = millisNow;
       double yaw = mIMU.getYawRadians(); //(PI * mIMU.getYaw()) / 180.0;
 
@@ -219,8 +227,10 @@ void loop()
       }
 
 //report Robot States
-    sendRobotStateValue( pos, irDistance, batteryVoltage);
-    
+    // sendRobotStateValue( pos, irDistance, batteryVoltage);
+    sendRobotStateWithCounter(pos, irDistance[2], batteryVoltage, idt);
+
+
     unsigned int execTime =  millis() - millisNow;
     if( execTime > loopExecuteTime)
       loopExecuteTime = execTime;
@@ -413,8 +423,7 @@ void stopRobot()
   blinkLed.normalBlink();
   // CurieTimerOne.kill();
   StopMotor();
-  delay(100);
-
+  // delay(100);
   if (currentState == STATE_DRIVE)
   {
     driveSupervisor.update(readLeftEncoder(), readRightEncoder(), 0.03); //处理当前运动的惯性
@@ -462,6 +471,18 @@ void turnAround(int dir, int angle, bool useIMU )
   driveSupervisor.turnAround(dir, angle, useIMU, mIMU.getYawRadians() );
 }
 
+void turnAround(int dir, int angle, double w )
+{
+  if( currentState != STATE_DRIVE )
+  {
+    stopRobot(); //stop currentState
+    startDrive();
+  }
+  driveSupervisor.turnAround(dir, angle, w, mIMU.getYawRadians() );
+}
+
+
+
 bool isBatteryLow()
 {
 #if OP_VOLTAGE == VOLT33
@@ -502,8 +523,12 @@ void processUltrasonic()
 void TrigUltrasonic()
 {
     long curTime = millis();
-    if (curTime - lastTrigTimer < sampleTime )
+
+    if( waitForEcho == true )
       return;
+
+    // if (curTime - lastTrigTimer < sampleTime )
+    //   return;
 
     lastTrigTimer = curTime;
     waitForEcho = true;
@@ -538,6 +563,9 @@ void UltrasonicEcho()
     echoTime = micros() - trigTime;
 }
 
+
+#if BUZZER == BUZZ_TONE 
+
 void playMelody(uint8_t pin, int melody[], int noteDurations[], int len )
 {
   
@@ -551,6 +579,30 @@ void playMelody(uint8_t pin, int melody[], int noteDurations[], int len )
     }
 
 }
+
+#else
+
+void playMelody(uint8_t pin, int melody[], int noteDurations[], int len )
+{
+    pinMode(pin, OUTPUT);
+    for (int thisNote = 0; thisNote < len; thisNote++)
+    {
+      int noteDuration = 1000/noteDurations[thisNote];
+      digitalWrite(pin, HIGH);
+      delay( noteDuration );
+      // tone(pin, melody[thisNote],noteDuration);
+
+      digitalWrite(pin, LOW);
+
+      int pauseBetweenNotes = noteDuration * 1.30;
+      delay(pauseBetweenNotes);
+      // noTone(pin);
+    }
+
+}
+
+#endif
+
 
 void setIMUFilter(int iFilter, bool withMag )
 {

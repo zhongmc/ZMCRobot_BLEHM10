@@ -43,6 +43,37 @@ void enumBlooth()
 
 }
 
+
+void initBlueTooth( long baudrate )
+{
+
+  queueLen = 0;
+  queueIdle = true; 
+  lastPkgMillis = millis();
+
+  Serial.print("init BLE HM10 At:");
+  Serial.println(baudrate);
+
+  bluetooth.begin( baudrate );
+
+  bleConnected = false;
+
+  bluetooth.write("AT");
+  delay(20);
+
+  while (bluetooth.available())
+  {
+    Serial.write(bluetooth.read());
+    bleConnected = true;
+  }
+
+  if( bleConnected )
+    Serial.println("\n_BLE ready...");
+ 
+  bleBufLen = 0;
+
+}
+
 void initBluetooth()
 {
   queueLen = 0;
@@ -131,7 +162,7 @@ void sendBleMessages(byte *tmp, uint8_t len )
       ll = len;
     for( int i=0; i<ll; i++)
     {
-      bluetooth.write((byte)*(tmp + i));
+      bluetooth.write( tmp[i] );
     }    
     bluetooth.flush();
     lastPkgMillis = millis();
@@ -157,16 +188,16 @@ void doSendBlePkg()
 {
   if( isEmpty() )
   {
-    if( millis() - lastPkgMillis > SEND_INTERVAL )
+    if( queueIdle == false && millis() - lastPkgMillis > SEND_INTERVAL )
       queueIdle = true;
     return;
   }
 
-  queueIdle = false;
   if( millis() - lastPkgMillis < SEND_INTERVAL )
   {
     return;
   }
+  queueIdle = false;
   byte buf[20];
   int len = pullData( buf );
   if( len <= 0 )
@@ -174,7 +205,7 @@ void doSendBlePkg()
 
   for (int i = 0; i < len; i++)
   {
-    bluetooth.write((byte) *(buf + i));
+    bluetooth.write(buf[i]);
   }
 
   bluetooth.flush();
@@ -384,7 +415,7 @@ bool connectToHM10(){
    {
       bluetooth.begin(baudrate[j]);
       delay(100);
-      Serial.print("BR:");
+      Serial.print("_BR:");
       Serial.println( baudrate[j] );
      // Serial.println("");
       bluetooth.write("AT");

@@ -6,6 +6,7 @@
 #include "Controller.h"
 #include "Robot.h"
 #include "RearDriveRobot.h"
+#include "BalanceRobot.h"
 
 #include "VWDriveController.h"
 
@@ -30,6 +31,8 @@ public:
   void setGoal(double v, double w);
   //turn around dir: 0 原地转圈，1：左轮转，2 右轮转； angle 度数；0-360;
   void turnAround(int dir, int angle, bool useIMU, double yaw );
+
+  void turnAround(int dir, int turnAngle, double w, double yaw);
 
   void getRobotInfo()
   {
@@ -119,7 +122,7 @@ private:
   VWDriveController m_Controller;
   //   Robot robot;
   RearDriveRobot robot;
-
+  // BalanceRobot robot;
   double d_unsafe;
   Input m_input;
   Output m_output;
