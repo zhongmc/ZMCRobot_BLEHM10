@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 
+
 #define BALANCE_CAR 1
 #define DRIVE_CAR 2
 
@@ -102,7 +103,6 @@ void checkSerialData();
 void processSetingsRequire();
 // void sendRobotStateValue(byte stateType, Position pos, double irDistance[5], double voltage);
 void sendRobotStateValue(Position pos, double irDistance[5], double voltage);
-void sendRobotStateWithCounter(Position pos, double ultraDist, double voltage, int idt);
 
 void sendBalanceRobotStateValue(Position pos, double irDistance[5], double voltage);
 
@@ -143,6 +143,8 @@ long bytesToLong( byte *buf);
 // void showBatVoltage(float v);
 // void showBleState(int state ); //0 无设备, 1 有设备，未连接, 2  有设备，已连接;
 
+void floatToByte(byte *arrayBuf, double val, double scale);
+void sendBleMessages(byte *tmp, uint8_t len );
 
 
 #endif

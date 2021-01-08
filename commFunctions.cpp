@@ -7,10 +7,12 @@
 #include "Supervisor.h"
 #include "DriveSupervisor.h"
 
-void sendBleMessages(byte *tmp, uint8_t len );
 
 extern Supervisor supervisor;
 extern DriveSupervisor driveSupervisor;
+
+extern RearDriveRobot robot;
+
 extern byte currentState;
 
 extern volatile long count1, count2;
@@ -68,7 +70,7 @@ byte bleStCnt = 0;
 byte pkgIdx = 0;
 unsigned long lastBLEStateSend; 
 
-void sendRobotStateWithCounter(Position pos, double ultraDist, double voltage, int idt)
+void sendRobotStateWithCounter(Robot *robot, double ultraDist, double voltage, int idt)
 {
  
   byte buf[20];
@@ -81,9 +83,9 @@ void sendRobotStateWithCounter(Position pos, double ultraDist, double voltage, i
   buf[19] = (byte)idt;
   
   double scale = 1000;
-  floatToByte(buf + 2, pos.x, scale);
-  floatToByte(buf + 4, pos.y, scale);
-  floatToByte(buf + 6, pos.theta, scale);
+  floatToByte(buf + 2, robot->x, scale);
+  floatToByte(buf + 4, robot->y, scale);
+  floatToByte(buf + 6, robot->theta, scale);
   buf[8] = (int)(100.0 * ultraDist);
   buf[9] = (byte)(int)(10.0 * voltage);
 
@@ -160,7 +162,7 @@ void SendSettings()
   Serial.println("Req for settings!");
 
 
-    SETTINGS sett = supervisor.getSettings( );
+    SETTINGS sett = robot.getSettings( );
 
     SendMessages("ROP%d,%d,%d,%s,%s,%s,%s,%s,%s\n", 
           sett.sampleTime, sett.min_rpm, sett.max_rpm, 

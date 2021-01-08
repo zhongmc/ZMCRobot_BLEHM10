@@ -13,9 +13,9 @@ typedef struct
 
 typedef struct
 {
-  double v;
-  double w;
-  double vel_l, vel_r;
+  double m_v, m_w; //设定的v,w
+  double v, w;     //控制量，v，w
+  double vel_l, vel_r; //实际输出的vel量；
 } Output;
 
 typedef struct
@@ -42,7 +42,7 @@ typedef struct
   //              3: PID for speed
   //              4: PID for turning
 
-  int sType; // 1: pid for 3 wheel; 2: pid for balance;  3: pid for speed; 4：PID for balance theta； 5: settings for robot; 6: settings for balance robot;
+  int sType; //0:all settings;  1: pid for 3 wheel; 2: pid for balance;  3: pid for speed; 4：PID for balance theta； 5: settings for robot; 6: settings for balance robot;
   
   double kp, ki, kd; //pid for direction                              1
   double pkp, pki, pkd; // pid for position / balance Speed           2 
@@ -152,7 +152,7 @@ public:
   
  double wheel_radius;
  double wheel_base_length;
-  int ticks_per_rev;
+ double ticks_per_rev;
 
 
 

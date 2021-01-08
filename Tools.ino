@@ -6,6 +6,7 @@
 #include "DriveSupervisor.h"
 extern Supervisor supervisor;
 extern DriveSupervisor driveSupervisor;
+extern RearDriveRobot robot;
 
 extern long trigTime, echoTime;
 extern double ultrasonicDistance;
@@ -159,33 +160,12 @@ void processCommand(char *buffer, int bufferLen, int src)
     Serial.println("\r\n===");
     driveSupervisor.getRobotInfo();
 
-    Robot *robot = supervisor.getRobot();
-
     SendMessages("_OK_:%s,%s,%s :%d;\n", 
-          floatToStr(0, robot->x),
-          floatToStr(1, robot->y),
-          floatToStr(2, robot->theta),
+          floatToStr(0, robot.x),
+          floatToStr(1, robot.y),
+          floatToStr(2, robot.theta),
           loopExecuteTime
           );
-
-    // long l1,l2;
-    // int d1,d2;
-    // l1 = (long)(10000*robot->wheel_radius);
-    // l2 = (long)(10000*robot->wheel_base_length);
-    // d1 = (int)l1;
-    // d2 = (int)l2;
-
-    long dcenter = 40;
-
-    double theta = dcenter*2*PI*robot->wheel_radius/(robot->wheel_base_length * robot->ticks_per_rev);
-
-
-    SendMessages("_rl-:%d,%d,%d;\n", 
-          (int)(10000*robot->wheel_radius),
-          (int)(10000*robot->wheel_base_length),
-          (int)(10000*theta)
-          );
-  
 
   }
   else if (ch0 == 's' && ch1 == 't') //stop
@@ -278,11 +258,10 @@ void processCommand(char *buffer, int bufferLen, int src)
   else if (ch0 == 'r' && ch1 == 's') //RESET
   {
     ResetRobot();
-    Robot *robot = supervisor.getRobot();
     SendMessages("_OK_:%s,%s,%s :%d;\n", 
-          floatToStr(0, robot->x),
-          floatToStr(1, robot->y),
-          floatToStr(2, robot->theta),
+          floatToStr(0, robot.x),
+          floatToStr(1, robot.y),
+          floatToStr(2, robot.theta),
           loopExecuteTime
           );
   }
@@ -349,9 +328,11 @@ void processCommand(char *buffer, int bufferLen, int src)
     Serial.print(sett.unsafe, 4);
     Serial.print(',');
     Serial.println(0, 4);
-
     
     sett.sType = 0;
+    robot.updateSettings(sett);
+
+    sett = robot.getSettings();
     supervisor.updateSettings(sett); 
     driveSupervisor.updateSettings(sett);
   
@@ -422,8 +403,7 @@ void processCommand(char *buffer, int bufferLen, int src)
     bool val = *(buffer + 2) - '0';
     float filter = atof((char *)(buffer + 3));
     log("S IR flt:%d,%s\n", val, floatToStr(0, filter));
-    supervisor.setIRFilter(val, filter);
-    driveSupervisor.setIRFilter(val, filter);
+    robot.setIRFilter(val, filter);
   }
   else if ( ch0 == 'i' && ch1 == 'r')
   {
@@ -431,8 +411,8 @@ void processCommand(char *buffer, int bufferLen, int src)
     byte val = *(buffer + 3) - '0';
     log("S IR:%d,%d\n", idx, val);
 
-    supervisor.setHaveIRSensor(idx, val);
-    driveSupervisor.setHaveIRSensor(idx, val);
+    robot.setHaveIrSensor(idx, val );
+    // robot.setHaveIRSensor(idx, val);
   }
 
 
@@ -491,7 +471,7 @@ void processCommand(char *buffer, int bufferLen, int src)
 
     for(int i=0; i<5; i++)
       ods[i] = atof( ptrs[i] )/1000.0;
-    supervisor.setObstacleDistance(ods);
+    robot.setObstacleDistance(ods);
   }
   else if (ch0 == 'r' && ch1 == 'p') //set robot position
   {
@@ -507,7 +487,12 @@ void processCommand(char *buffer, int bufferLen, int src)
     double x = atof( ptrs[0] )/1000.0;
     double y = atof( ptrs[1] )/1000.0;
     double theta = atof( ptrs[2] )/1000.0;
-    supervisor.setRobotPosition(x, y, theta);
+
+    robot.x = x;
+    robot.y = y;
+    robot.theta = theta;
+   
+    // supervisor.setRobotPosition(x, y, theta);
   }
 
   else if (ch0 == 'i' && ch1 == 'o') //ignore atObstacle
@@ -738,23 +723,12 @@ void setPID(char *buffer)
       floatToStr(1, i),
       floatToStr(2, d));
 
-  supervisor.setPIDParams(type, p, i, d);
-  driveSupervisor.setPIDParams(type, p, i, d);
+    robot.setPIDParams(type, p, i, d);
+    SETTINGS sett = robot.getSettings();
+    supervisor.updateSettings(sett); 
+    driveSupervisor.updateSettings(sett);
 }
 
-
-
-// char *scanfDouble(char *buf, double&value, char split)
-// {
-//   value = atof(buf);
-//   return strchr(buf, split);
-// }
-
-// char *scanfInt(char *buf, int&value, char split)
-// {
-//   value = atoi(buf);
-//   return strchr(buf, split);
-// }
 
 //字符串按分割符分割
 int split(char *src, char delim, char **res, int resLen )
@@ -776,33 +750,3 @@ int split(char *src, char delim, char **res, int resLen )
 
     return idx;
 }
-
-// void stepResponseTest(int pwm)
-// {
-//   Serial.print("SR: ");
-//   Serial.println(pwm);
-//   printCountInfo();
-//   printCountInfo();
-//   int count = 100;
-//   while (count > 0)
-//   {
-//     delay(20);
-//     printCountInfo();
-//   }
-//   printCountInfo();
-//   MoveMotor(0);
-// }
-
-/*
-void log(int level, char *format, ...)
-{
-  char str_tmp[256];
-  int i = 0;
-  va_list vArgList;                              //定义一个va_list型的变量,这个变量是指向参数的指针.
-  va_start(vArgList, format);                    //用va_start宏初始化变量,这个宏的第二个参数是第一个可变参数的前一个参数,是一个固定的参数
-  i = _vsnprintf(str_tmp, 256, format, vArgList); //注意,不要漏掉前面的_
-  va_end(vArgList);                              //用va_end宏结束可变参数的获取
-  return i;                                      //返回参数的字符个数中间有逗号间隔
-}
-*/
-

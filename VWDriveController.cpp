@@ -1,10 +1,6 @@
 
 #include "VWDriveController.h"
 
-void floatToByte(byte *arrayBuf, double val, double scale);
-
-
-
 VWDriveController::VWDriveController()
 {
   Kp = 0.3;
@@ -47,23 +43,17 @@ void VWDriveController::execute(Robot *robot, Input *input, Output *output, doub
 
   m_v = input->v;
   m_w = input->w;
+  output->m_v = input->v;
+  output->m_w  = input->w;
 
+  if( m_v == 0 && m_w == 0 )
+  {
+    output->vel_l = 0;
+    output->vel_r = 0;
+    return;
+  }
   doWControll(robot, input, output, dt);
   doVControll(robot, input, output, dt );
-
-      vel_l =  output->vel_l;
-      vel_r = output->vel_r; 
-
-  ctrl_info[0] = 0xA3;
-  ctrl_info[1] = 16;
-  floatToByte(ctrl_info + 2, robot->velocity, 1000);
-  floatToByte(ctrl_info + 4, robot->w, 1000);
-  floatToByte(ctrl_info + 6, m_v, 1000);
-  floatToByte(ctrl_info + 8, m_w, 1000);
-  floatToByte(ctrl_info + 10, ctrl_v, 1000);
-  floatToByte(ctrl_info + 12, ctrl_w, 1000);
-  floatToByte(ctrl_info + 14, vel_l, 1000);
-  floatToByte(ctrl_info + 16, vel_r, 1000);
 
 }
 
@@ -109,7 +99,7 @@ void VWDriveController::execute(Robot *robot, Input *input, Output *output, doub
     if( m_v == 0 )
     {
 
-      double dif =1.5*( robot->vel_l + robot->vel_r);  //控制左右一致的转速
+      double dif =0.5*( robot->vel_l + robot->vel_r);  //控制左右一致的转速
       if( dif * vel.vel_l > 0 ) //1. vel_l < 0 dif <0 vel_r = vel_r - dif; 2. vel_l > 0 dif > 0 vel_r - dif
       {
         vel.vel_r = vel.vel_r - dif;

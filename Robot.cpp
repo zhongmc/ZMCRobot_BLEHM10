@@ -55,68 +55,6 @@ void Robot::setIRSensorType(SENSOR_TYPE sensorType)
     irSensors[i]->SetSensorType(sensorType);
 }
 
-// void Robot::updatePID(SETTINGS settings)
-// {
-//   if( settings.type == 1 )
-//   {
-//     mSettings.kd = settings.kd;
-//     mSettings.ki = settings.ki;
-//     mSettings.kp = settings.kp;
-//   }
-//   else if(settings.type == 2 )
-//   {
-//     mSettings.pkd = settings.pkd;
-//     mSettings.pki = settings.pki;
-//     mSettings.pkp = settings.pkp;
-
-//   }
-//   else if(settings.type == 3 )
-//   {
-//     mSettings.tkd = settings.tkd;
-//     mSettings.tki = settings.tki;
-//     mSettings.tkp = settings.tkp;
-
-//   }
-//   else if(settings.type == 4 )
-//   {
-//     mSettings.dkd = settings.dkd;
-//     mSettings.dki = settings.dki;
-//     mSettings.dkp = settings.dkp;
-//   }
-
-// }
-
-// void Robot::updatePID(int type, double kp, double ki, double kd )
-// {
-//   if( type == 1 )
-//   {
-//     mSettings.kd = kd;
-//     mSettings.ki = ki;
-//     mSettings.kp = kp;
-//   }
-//   else if(type == 2 )
-//   {
-//     mSettings.pkd = pkd;
-//     mSettings.pki = pki;
-//     mSettings.pkp = pkp;
-
-//   }
-//   else if(type == 3 )
-//   {
-//     mSettings.tkd = tkd;
-//     mSettings.tki = tki;
-//     mSettings.tkp = tkp;
-
-//   }
-//   else if(type == 4 )
-//   {
-//     mSettings.dkd = dkd;
-//     mSettings.dki = dki;
-//     mSettings.dkp = dkp;
-
-//   }  
-// }
-
 void Robot::updateSettings(SETTINGS settings)
 {
 
@@ -238,8 +176,8 @@ void Robot::updateState(long left_ticks, long right_ticks, double yaw,  double d
   // vel_r = 2 * PI * vel_r;
 
   double perimeter = 2*PI * wheel_radius;
-  d_left = (left_ticks - prev_left_ticks) * perimeter / (double)ticks_per_rev;
-  d_right = (right_ticks - prev_right_ticks) * perimeter / (double)ticks_per_rev;
+  d_left = (left_ticks - prev_left_ticks) * perimeter /ticks_per_rev;
+  d_right = (right_ticks - prev_right_ticks) * perimeter /ticks_per_rev;
 
   vel_l = (2*PI*(left_ticks - prev_left_ticks)/dt)/ ticks_per_rev;
   vel_r = (2*PI*(right_ticks - prev_right_ticks)/dt)/ ticks_per_rev;
@@ -313,14 +251,14 @@ void Robot::updateState(long left_ticks, long right_ticks, double dt)
 
   double d_right, d_left, d_center;
 
-  vel_l = ((double)(left_ticks - prev_left_ticks) / dt) / (double)ticks_per_rev;
-  vel_r = ((double)(right_ticks - prev_right_ticks) / dt) / (double)ticks_per_rev;
+  vel_l = ((double)(left_ticks - prev_left_ticks) / dt) / ticks_per_rev;
+  vel_r = ((double)(right_ticks - prev_right_ticks) / dt) / ticks_per_rev;
   vel_l = 2 * PI * vel_l;
   vel_r = 2 * PI * vel_r;
 
   double perimeter = 2*PI * wheel_radius;
-  d_left = (left_ticks - prev_left_ticks) * perimeter / (double)ticks_per_rev;
-  d_right = (right_ticks - prev_right_ticks) * perimeter / (double)ticks_per_rev;
+  d_left = (left_ticks - prev_left_ticks) * perimeter / ticks_per_rev;
+  d_right = (right_ticks - prev_right_ticks) * perimeter / ticks_per_rev;
 
   prev_left_ticks = left_ticks;
   prev_right_ticks = right_ticks;
@@ -394,7 +332,7 @@ void Robot::getRobotInfo()
   log("robot(R,L,tks):%s, %s, %d\n",
       floatToStr(1, 1000 * wheel_radius),
       floatToStr(2, 1000 * wheel_base_length),
-      ticks_per_rev);
+      (int)ticks_per_rev);
 
   log("Balance, Q=%s, gyro=%s\n",
       floatToStr(0, angle),

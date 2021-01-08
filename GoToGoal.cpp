@@ -49,6 +49,8 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
     {
       StopMotor();
       output->w = 0;
+      lastErrorIntegration = e_I;
+      lastError = e;
       state = 0;
       return;
     }
@@ -67,6 +69,9 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
       output->w = e;
       return;
     }
+  
+    lastErrorIntegration = e_I;
+    lastError = e;
     state = 0;
   }
 
@@ -78,9 +83,8 @@ void GoToGoal::execute(Robot *robot, Input *input, Output *output, double dt)
   output->w = Kp * e + Ki * e_I + Kd * e_D;
   lastErrorIntegration = e_I;
   lastError = e;
-
   //no need of pid; let vw control do it
-  output->w = e;
+  // output->w = e;
 
   if( abs(e) > 0.5 )
   {

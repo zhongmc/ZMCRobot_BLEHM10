@@ -5,8 +5,8 @@
 #include <Arduino.h>
 #include "Controller.h"
 #include "Robot.h"
-#include "RearDriveRobot.h"
-#include "BalanceRobot.h"
+// #include "RearDriveRobot.h"
+// #include "BalanceRobot.h"
 
 #include "GoToGoal.h"
 #include "AvoidObstacle.h"
@@ -25,39 +25,13 @@ class Supervisor
 public:
   Supervisor();
   
-  void execute(long left_ticks, long right_ticks, double yaw, double dt);
-  void update(long left_ticks, long right_ticks, double dt);
+  Output execute(Robot *robot, double yaw, double dt);
 
   // void executeFollowWall(double dt);
-  void executeAvoidAndGotoGoal(double dt);
+  void executeAvoidAndGotoGoal(Robot *robot, double dt);
 
-  void reset(long leftTicks, long rightTicks);
-  void resetRobot();
+  void reset();
   void setGoal(double x, double y, double targetTheta, double v);
-
-  void setHaveIRSensor(int idx, byte val);
-
-  void setIRFilter(bool open, float filter);
-
-  void setSimulateMode(int val);
-
-  void setUseIMU(bool beUseIMU, double _alpha)
-  {
-    // mUseIMU = beUseIMU;
-    // alpha = _alpha;
-    robot.setUseIMU(beUseIMU, _alpha);
-  };
-
-  // bool isUseIMU()
-  // {
-  //   return mUseIMU;
-  // }
-
-
-  Robot *getRobot()
-  {
-    return &robot;
-  }
 
   void getRobotInfo()
   {
@@ -84,18 +58,10 @@ public:
     Serial.print(", w:");
     Serial.print(m_output.w);
 
-    Serial.print(", vel-l:");
-    Serial.print(robot.vel_l);
-    Serial.print(", vel-r:");
-    Serial.println(robot.vel_r);
-    // long c1, c2;
-    // c1 = (long)m_left_ticks;
-    // c2 = (long)m_right_ticks;
-    Serial.print("c1:");
-    Serial.print(m_left_ticks);
-    Serial.print(", c2:");
-    Serial.println(m_right_ticks);
-
+    // Serial.print(", vel-l:");
+    // Serial.print(robot.vel_l);
+    // Serial.print(", vel-r:");
+    // Serial.println(robot.vel_r);
     Serial.print("at ob:");
     Serial.print(d_at_obs);
     Serial.print(", ");
@@ -104,7 +70,7 @@ public:
 
     Serial.print("exec time:");
     Serial.println(execTime);
-    robot.getRobotInfo();
+
     Serial.print("GTG CTRL ");
     m_GoToGoal.PrintInfo();
     Serial.print("FLW CTRL ");
@@ -116,31 +82,14 @@ public:
   //the target to go!
   Vector m_Goal;
   Vector mFollowWallPoint;
-
-  void getIRDistances(double dis[5]);
-  void readIRDistances(double dis[5]);
-
-  void setObstacleDistance(double dis[5]);
-
-  Position getRobotPosition();
-  void setRobotPosition(double x, double y, double theta);
-  void init();
-
   void updateSettings(SETTINGS settings);
-  void setPIDParams(int type, double kp, double ki, double kd );
-  SETTINGS getSettings();
 
-  unsigned int getLeftTicks(){return m_left_ticks;};
-  unsigned int getRightTicks(){ return m_right_ticks;};
-
-  bool mSimulateMode;
   bool mIgnoreObstacle;
 
 private:
-  void
-  set_progress_point();
-  void check_states();
-  bool changeToFollowWall();
+  void set_progress_point(double x, double y);
+  void check_states(Robot *robot);
+  bool changeToFollowWall(Robot *robot);
 
   bool progress_made;
   bool at_goal;
@@ -164,7 +113,7 @@ private:
   SlidingMode m_SlidingMode;
 
   VWDriveController m_DriveCtrl;
-  RearDriveRobot robot;
+  // RearDriveRobot robot;
   // BalanceRobot robot;
   
   Controller *m_currentController;

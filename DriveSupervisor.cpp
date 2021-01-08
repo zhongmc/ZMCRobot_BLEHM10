@@ -5,10 +5,7 @@
 void sendBleMessages(byte *tmp, uint8_t len );
 void SendMessages(const char *format, ...);
 
-extern byte  info_required;
-
 extern long count1, count2;
-
 #define REG2RAD 0.017453292
 #define RAD2REG 57.2957795
 
@@ -24,59 +21,32 @@ DriveSupervisor::DriveSupervisor()
   ctrl_v = 0;
   target_theta = 0;
   keepTheta = false;
-
-  mSimulateMode = false;
   mIgnoreObstacle = false;
   danger = false;
-  // mUseIMU = false;
-  // alpha = 0.5;
-  m_left_ticks = 0;
-  m_right_ticks = 0;
   inTurnState = false;
 
 }
 
-void DriveSupervisor::setIRFilter(bool open, float val)
-{
-  robot.setIRFilter(open, val);
-}
-
-void DriveSupervisor::setHaveIRSensor(int idx, byte val)
-{
-  robot.setHaveIrSensor(idx, val);
-}
-
-
-SETTINGS DriveSupervisor::getSettings()
-{
-  return robot.getSettings();
-}
 
 
 void DriveSupervisor::updateSettings(SETTINGS settings)
 {
-  if (settings.sType == 0 || settings.sType == 5)
-  {
-    d_unsafe = settings.unsafe;
-  }
-  robot.updateSettings(settings);
+  d_unsafe = settings.unsafe;
 
-  init();
+  lastError = 0;
+  lastErrorIntegration = 0;
+  lastVError = 0;
+  lastVErrorIntegration = 0;
+
+  kp = settings.kp;
+  ki = settings.ki;
+  kd = settings.kd;
+
+  vkp = settings.dkp;
+  vki = settings.dki;
+  vkd = settings.dkd;
 
 }
-
-void DriveSupervisor::init()
-{
-  SETTINGS settings = robot.getSettings();
-  m_Controller.setSettings(settings);
-}
-
-void DriveSupervisor::setPIDParams(int type, double kp, double ki, double kd )
-{
-    robot.setPIDParams(type, kp, ki, kd);
-    init(); //update controller's PID
-}
-
 
 // drive the robot velocity and turning w
 void DriveSupervisor::setGoal(double v, double w)
@@ -84,41 +54,43 @@ void DriveSupervisor::setGoal(double v, double w)
 
   inTurnState = false;
   m_state = s_DRIVE;
-
+  m_input.v = v;
+  m_input.w = w;
   if( v == 0 && w == 0 )  //stop
   {
-      target_theta = robot.theta;
-      m_Controller.reset();
+    lastError = 0;
+    lastErrorIntegration = 0;
+    lastVError = 0;
+    lastVErrorIntegration = 0;
+
       m_state == S_STOP;
   }
 
   if( ctrl_w != 0 && w == 0 )
   {
     keepTheta = true;
-    keepThetaTime = millis();
   }
   ctrl_v = v;
   ctrl_w = w;
-  m_input.v = v;
-  m_input.w = w;
 }
 
-void DriveSupervisor::turnAround(int dir, int angle, double w,  double yaw )
+void DriveSupervisor::turnAround(int dir, int angle, double w,  double theta, double yaw )
 {
 
   targetTurnTheta = angle* REG2RAD;
   turnedTheta = 0;
   inTurnState = true;
   ctrlTurnByIMU = false;
+  
+  lastTheta = theta;
 
-  targetYaw = robot.theta + angle* REG2RAD;
-  lastYaw = robot.theta;
+  targetYaw = theta + angle* REG2RAD;
 
   if( targetYaw > PI )
     targetYaw = targetYaw - 2*PI;
 
 // #define RAD2REG 57.2957795
-  int ct = (int)(RAD2REG * robot.theta );
+  int ct = (int)(RAD2REG * theta );
   int cy = (int)(RAD2REG * yaw);
 
   if( ct < 0 )
@@ -162,99 +134,53 @@ void DriveSupervisor::turnAround(int dir, int angle, double w,  double yaw )
 
 }
 
-void DriveSupervisor::turnAround(int dir, int angle, bool useIMU, double yaw )
+void DriveSupervisor::turnAround(int dir, int angle, bool useIMU, double theta, double yaw )
 {
   // turnDir = dir;
-  turnAround(dir, angle, 0.8, yaw );
+  turnAround(dir, angle, 0.8, theta, yaw );
 
 }
 
-void DriveSupervisor::resetRobot()
+void DriveSupervisor::reset()
 {
-  robot.x = 0;
-  robot.y = 0;
-  robot.w = 0;
-  robot.theta = 0;
   ctrl_v = 0;
   ctrl_w = 0;
   target_theta = 0;
-
-  m_Controller.reset(&robot);
-  // m_DifController.reset();
-  reset(0, 0);
-}
-
-void DriveSupervisor::reset(long leftTicks, long rightTicks)
-{
-
   danger = false;
-  if (mSimulateMode)
-  {
-    m_left_ticks = 0;
-    m_right_ticks = 0;
-    robot.reset(m_left_ticks, m_right_ticks);
-    m_Controller.reset(&robot);
-    // m_DifController.reset();
-  }
-  else
-  {
-    robot.reset(leftTicks, rightTicks);
-    m_Controller.reset(&robot);
-  }
-  ctrl_v = 0;
-  ctrl_w = 0;
-  target_theta = 0;
 
-    // m_DifController.reset();
+    lastError = 0;
+    lastErrorIntegration = 0;
+    lastVError = 0;
+    lastVErrorIntegration = 0;
+
+      m_state == S_STOP;
+
 }
 
 
-
-void DriveSupervisor::update(long left_ticks, long right_ticks, double dt)
+void DriveSupervisor::reset(double theta)
 {
-  if (mSimulateMode)
-    robot.updateState((long)m_left_ticks, (long)m_right_ticks, dt);
-  else
-  {
-      robot.updateState(left_ticks, right_ticks, dt);
-  }
+  reset();
+  target_theta = theta;
 }
 
-void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, double dt)
+
+Output DriveSupervisor::execute(Robot *robot, double yaw, double dt)
 {
-
-  //  uint32_t timer = micros();
-
-  double theta = robot.theta;
-
-  if (mSimulateMode)
-    robot.updateState((long)m_left_ticks, (long)m_right_ticks, dt);
-  else
-  {
-      robot.updateState(left_ticks, right_ticks, yaw, dt);
-    // if (mUseIMU)
-    //   robot.updateState(left_ticks, right_ticks, yaw, alpha, dt);
-    // else
-    //   robot.updateState(left_ticks, right_ticks, dt);
-  }
-  
+ //  uint32_t timer = micros();
+ // double theta = robot->theta;
+  m_output.v = 0;
+  m_output.w = 0;
+  m_output.vel_l = 0;
+  m_output.vel_r = 0;
 
   if( inTurnState )
   {
     double yawErr, delta_theta;
 
-    if( ctrlTurnByIMU )
-    {
-      yawErr = yaw - targetYaw;
-      delta_theta = yaw - lastYaw;
-      lastYaw = yaw;
-    }
-    else
-    {
-      yawErr = robot.theta - targetYaw;
-      delta_theta = robot.theta - theta;
-      lastYaw = robot.theta;
-    }
+      yawErr = robot->theta - targetYaw;
+      delta_theta = robot->theta - lastTheta;
+      lastTheta = robot->theta;
 
     delta_theta = atan2(sin(delta_theta), cos(delta_theta));
     delta_theta = abs(delta_theta);
@@ -274,23 +200,21 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
       m_state = S_STOP;
       // SendMessages("ta1:%d\n", turnedAngle);
       double endYaw = yaw;
-      if( !mSimulateMode )
-      {
-        theta = robot.theta;
-        // delay(300);
+
+        // theta = robot->theta;
+        delay(500);
         readCounter();
-        robot.updateState(readLeftEncoder(), readRightEncoder(), yaw, dt);
-        endYaw = robot.theta;
-      }
+        robot->updateState(readLeftEncoder(), readRightEncoder(), yaw, dt);
+        endYaw = robot->theta;
 
       if( !ctrlTurnByIMU )
-        endYaw = robot.theta;
+        endYaw = robot->theta;
       else
       {
         endYaw = yaw; //
       }
 
-      int ct = (int)(RAD2REG * robot.theta);   
+      int ct = (int)(RAD2REG * robot->theta);   
       int ta = (int)(RAD2REG*turnedTheta);
       int cy = (int)(RAD2REG*yaw);
 
@@ -304,104 +228,125 @@ void DriveSupervisor::execute(long left_ticks, long right_ticks, double yaw, dou
       Serial.println();
       SendMessages("-tle:%d,%d,%d;\n",ct, cy, ta);
 
-
-
-
-      // SendMessages("ta2:%d\n", turnedAngle);
-      // SendMessages("rt:%s\n", floatToStr(0, robot.theta ));
-
-      // Serial.print("-turned:");
-      // Serial.print( turnedTheta, 4);
-      // Serial.print(":");
-      // Serial.println(turnedAngle);
-
-      // Serial.print("-turn end:");
-      // Serial.print( robot.theta, 4);
-      // Serial.print(":");
-      // int curAngle = (int)(180.0*robot.theta / PI );
-      // if( curAngle < 0 )
-      //   curAngle = 360 + curAngle;
-      // Serial.println(curAngle);
-      return;
+      return m_output;
     }
   }
 
-  check_states();
+  check_states(robot);
 
-  if (!mSimulateMode && m_input.v > 0 && danger)
+  if ( m_input.v > 0 && danger)
   {
     if (m_state != S_STOP)
       Serial.println("Danger!");
     m_state = S_STOP; //s_stop;
     StopMotor();
-    return;
+    return m_output;
   }
 
   if( m_state == S_STOP )
-    return;
+    return m_output;
 
   m_input.w = ctrl_w;
 
   if( keepTheta )
   {
-    if( abs(robot.w) < 0.05 )
+    if( abs(robot->w) < 0.05 )
     {
       keepTheta = false;
-      target_theta = robot.theta;
-
+      target_theta = robot->theta;
+      lastError = 0;
+      lastErrorIntegration = 0;
     }
-    // if( millis() - keepThetaTime > 100 )
-    // {
-    //   keepTheta = false;
-    //   target_theta = robot.theta;
-    // }
   }
 
-  if( ctrl_w == 0 && !keepTheta )
+  if( ctrl_w == 0 && !keepTheta )  //方向控制
   {
-     double e = target_theta - robot.theta;
+     double e = target_theta - robot->theta;
      e = atan2(sin(e), cos(e));
-      m_input.w = e;
-  }
-  
-  m_Controller.execute(&robot, &m_input, &m_output, dt);
-  
-  int pwm_l = robot.vel_l_to_pwm(m_output.vel_l );
-  int pwm_r = robot.vel_r_to_pwm(m_output.vel_r );
 
-
-  if (mSimulateMode)
-  {
-    m_left_ticks = m_left_ticks + robot.pwm_to_ticks_l( pwm_l, dt);
-    m_right_ticks = m_right_ticks + robot.pwm_to_ticks_r(pwm_r, dt);
-
-    count1 = (long)m_left_ticks;
-    count2 = (long)m_right_ticks;
-  }
-  else
-  {
-    MoveLeftMotor(pwm_l);
-    MoveRightMotor(pwm_r);
+    double e_D = (e - lastError) / dt;
+    double e_I = lastErrorIntegration + e * dt;
+    m_input.w = kp * e + ki * e_I + kd * e_D;
+    lastError = e;
   }
 
-  if( info_required == 1 )
-  {
-    byte *ctrl_info = m_Controller.getCtrlInfo();
-    sendBleMessages(ctrl_info, 18);
-  }
-  else if( info_required == 2)
-  {
-    sendCounterInfo( (int)( dt * 1000) );
-  }
+  doVControll( robot, dt);
+  return m_output;
 
 }
 
+
+void DriveSupervisor::doVControll(Robot *robot, double dt)
+{
+    double v = m_input.v;
+    double w = m_input.w;
+
+    m_output.v = v;
+    m_output.w = w;
+    
+    Vel vel = robot->uni_to_diff_velmin(v, w); 
+    if( v == 0 )
+    {
+
+      double dif =0.5*( robot->vel_l + robot->vel_r);  //控制左右一致的转速
+      if( dif * vel.vel_l > 0 ) //1. vel_l < 0 dif <0 vel_r = vel_r - dif; 2. vel_l > 0 dif > 0 vel_r - dif
+      {
+        vel.vel_r = vel.vel_r - dif;
+      }
+      else // 1. vel_l < 0 dif > 0 vel_l - dif 2. vel_l > 0 dif < 0 vel_l - dif
+      {
+        vel.vel_l = vel.vel_l - dif;
+      }
+      
+      m_output.vel_l = vel.vel_l;
+      m_output.vel_r = vel.vel_r;
+      lastVError = 0;
+      lastVErrorIntegration = 0;
+      return;
+    }
+
+
+  if( abs( w) > 0.2 ) //拐弯，不做速度控制
+  {
+    m_output.vel_l = vel.vel_l;
+    m_output.vel_r = vel.vel_r;
+    // lastError = 0;
+    // lastErrorIntegration = 0;
+  }
+  else
+  {
+      double e, ei,ed;
+      e = v - robot->velocity;
+      ei = lastVErrorIntegration + e* dt;
+      ed = (e-lastVError)/dt;
+
+      double cv = vkp * e + vki*ei + vkd*ed;
+      lastVErrorIntegration = ei;
+      lastVError = e;
+
+      cv = v + vkp * e;
+      if( cv * v < 0 ) //不能倒车的方式减速
+        cv = 0;
+      // vel = robot->uni_to_diff_oneside(ctrl_v, ctrl_w); 
+      // vel = robot->ensure_w(ctrl_v, ctrl_w); 
+      m_output.v = cv;
+      vel = robot->uni_to_diff_velmin(cv, w); 
+      m_output.vel_l = vel.vel_l;
+      m_output.vel_r = vel.vel_r; 
+  }
+      
+
+
+}
+
+
+
 extern double ultrasonicDistance;
 
-void DriveSupervisor::check_states()
+void DriveSupervisor::check_states(Robot *robot)
 {
 
-  IRSensor **irSensors = robot.getIRSensors();
+  IRSensor **irSensors = robot->getIRSensors();
   //    for( int i=0; i<5; i++)
   //    {
   //      if( irSensors[i]->distance < d_at_obs )
@@ -427,39 +372,3 @@ void DriveSupervisor::check_states()
     danger = false;
 }
 
-void DriveSupervisor::setRobotPosition(double x, double y, double theta)
-{
-  robot.x = x;
-  robot.y = y;
-  robot.theta = theta;
-  robot.prev_yaw = theta;
-  target_theta = theta;
-
-
-}
-
-Position DriveSupervisor::getRobotPosition()
-{
-  Position pos;
-  pos.x = robot.x;
-  pos.y = robot.y;
-  pos.theta = robot.theta;
-  pos.v = robot.velocity;
-  pos.w = robot.w;
-  return pos;
-}
-
-void DriveSupervisor::getIRDistances(double dis[5])
-{
-  IRSensor **irSensors = robot.getIRSensors();
-  for (int i = 0; i < 5; i++)
-  {
-    dis[i] = irSensors[i]->distance;
-  }
-}
-
-void DriveSupervisor::getRobotVel(double dis[5])
-{
-  dis[0] = robot.vel_l;
-  dis[1] = robot.vel_r;
-}

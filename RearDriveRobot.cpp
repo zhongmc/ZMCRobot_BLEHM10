@@ -25,7 +25,7 @@ RearDriveRobot::RearDriveRobot()
 
   // init(0.031831,  0.1505, 990, 25, 120, GP2Y0A21);   //铝合金轮子，新底板
 
-  init(0.0316,  0.161, 990, 20, 100, GP2Y0A21);   //热熔轮子，新底板
+  init(0.0314,  0.159, 990, 20, 100, GP2Y0A21);   //热熔轮子，新底板
   
   vel_pwm_a = 13;
   vel_pwm_b = 24;
@@ -95,9 +95,9 @@ RearDriveRobot::RearDriveRobot()
   // mPIDSettings.kd = 0.0; //0.02; //0.2
 
   //1:90
-  mSettings.kp = 0.5;     //5,  2; //25;  //20 0.5 2; 2019-01-26:   5, 0.02, 0.9; 5, 0.05, 1.2; 5,0.08,1.2 2019-02-09 5, 0.01, 0.2
-  mSettings.ki = 0.6;   //0, .4; // 0.01;
-  mSettings.kd = 0.0005;     //0, 0.02; //0.2
+  mSettings.kp = 0.4;     //5,  2; //25;  //20 0.5 2; 2019-01-26:   5, 0.02, 0.9; 5, 0.05, 1.2; 5,0.08,1.2 2019-02-09 5, 0.01, 0.2
+  mSettings.ki = 0.1;   //0, .4; // 0.01;
+  mSettings.kd = 0.000;     //0, 0.02; //0.2
 
   mSettings.pkp = 1.5;
   mSettings.pki = 0.1;
@@ -114,9 +114,9 @@ RearDriveRobot::RearDriveRobot()
 
 
 //30ms sample time param 0.18 0.4 0.003
-  mSettings.dkp = 1; // 0.3; //0.38; 
+  mSettings.dkp = 0.2; // 0.3; //0.38; 
   mSettings.dki = 0.2; // 0.8; //0.26;
-  mSettings.dkd = 0.005; //0; //0.003;
+  mSettings.dkd = 0.00; //0; //0.003;
 
 
   //   bool useIMU, irFilter;
@@ -126,7 +126,7 @@ RearDriveRobot::RearDriveRobot()
   mSettings.imuAlpha = 0.7;
   mSettings.irAlpha = 0.5;
 
-  mSettings.sampleTime = 30; //50;
+  mSettings.sampleTime = 100; //50;
 }
 
 

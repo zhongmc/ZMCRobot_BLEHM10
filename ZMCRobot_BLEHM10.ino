@@ -32,13 +32,17 @@
 
 void sendIMURawData();
 void readCounter();
+void sendRobotStateWithCounter(Robot *robot, double ultraDist, double voltage, int idt);
+
+
+extern byte  info_required;   //0 none 1 ctrlInfo 2 count info
 
 byte currentState = STATE_IDLE;
 
 IMU mIMU;
 bool mIMUDataOk = false;
 
-// RearDriveRobot robot();
+RearDriveRobot robot;
 Supervisor supervisor;
 DriveSupervisor driveSupervisor;
 
@@ -63,25 +67,20 @@ bool openDebug = false;
 extern volatile long count1, count2;
 extern int comDataCount;
 
-//char *titles[] = {"Self balance", "Cruise", "Speed ", "Start", "Remote by BLE", "To Target", "Target X:", "Target Y:", "Start",
-//                         "PID of Balance", "KP: ", "KI: ", "KD: ", "Config", "Calibrate Motor", "balance angle"
-//                        };
 
-//menu_item menuItems[17];
-//MyMenu menu(&menuItems[0]);
+double m_right_ticks = 0, m_left_ticks = 0;
+bool mSimulateMode = false;
 
 unsigned int loopExecuteTime = 0;
 int imuCycle;
 int sampleTime = 30; // (sample time 30 ms);
 unsigned long prevSampleMillis, prevBattMillis, prevImuMillis, prevStateMillis;
-//bool backLightOn = false;
+
 double irDistance[5];
 Position pos;
 
 double batteryVoltage;  // Measured battery level
 uint8_t batteryLowCount; // Counter used to check if it should check the battery level
-
-
 
 void setup()
 {
@@ -125,14 +124,14 @@ void setup()
   attachInterrupt(digitalPinToInterrupt(ULTRASONIC_ECHO), UltrasonicEcho, CHANGE);
   TrigUltrasonic();
 
-  SETTINGS sett = supervisor.getSettings();
+  SETTINGS sett = robot.getSettings();
   sampleTime = sett.sampleTime;
+  supervisor.updateSettings(sett);
+  driveSupervisor.updateSettings(sett);
 
   Serial.print("Sample time:");
   Serial.println( sampleTime );
   
-  supervisor.init();
-  driveSupervisor.init();
 
   bExecDrive = false;
   bExecGTG = false;
@@ -140,7 +139,6 @@ void setup()
   blinkLed.init();
   blinkLed.normalBlink();
 
-  
   interrupts();
  
   // bCount = 0;
@@ -179,16 +177,13 @@ void loop()
   {
     imuCycle = millisNow - prevImuMillis;
     prevImuMillis = millisNow;
-    
     mIMUDataOk = false;
-
-     mIMU.readIMU( 0 );           //1/GYRO_RATE
-     mIMU.calculateAttitute( 0 ); //1/GYRO_RATE
-
-      if( mROSConnected )
-      {
-        sendIMURawData();
-      }
+    mIMU.readIMU( 0 );           //1/GYRO_RATE
+    mIMU.calculateAttitute( 0 ); //1/GYRO_RATE
+    if( mROSConnected )
+    {
+      sendIMURawData();
+    }
 
   }
 
@@ -196,40 +191,73 @@ void loop()
   if ( (millisNow - prevSampleMillis) >= sampleTime ) 
   {
     int idt = millisNow -  prevSampleMillis;
-      double dt = (double)idt/1000.0;
-       prevSampleMillis = millisNow;
-      double yaw = mIMU.getYawRadians(); //(PI * mIMU.getYaw()) / 180.0;
+    double dt = (double)idt/1000.0;
+    prevSampleMillis = millisNow;
+    double yaw = mIMU.getYawRadians(); //(PI * mIMU.getYaw()) / 180.0;
+    readCounter();
+    
+    if (mSimulateMode)
+      robot.updateState((long)m_left_ticks, (long)m_right_ticks, dt);
+    else
+    {
+        robot.updateState(readLeftEncoder(), readRightEncoder(), yaw, dt);
+    }
+    Output m_output;
+    m_output.vel_l = 0;
+    m_output.vel_r = 0;
+    m_output.v = 0;
+    m_output.w = 0;
 
-      readCounter();
-
-      if (currentState == STATE_GOTOGOAL)
+    if (currentState == STATE_GOTOGOAL)
+    {
+      m_output = supervisor.execute(&robot, yaw, dt);
+      if( mSimulateMode )
       {
-        supervisor.execute(count1, count2, yaw, dt);
-        // supervisor.execute(readLeftEncoder(), readRightEncoder(), yaw, dt);
-        if( supervisor.mSimulateMode )
-        {
-          delay(3);
-          checkSerialData(); //wait for 
-        }
-        supervisor.getIRDistances(irDistance);
-        pos = supervisor.getRobotPosition();
+        delay(3);
+        checkSerialData(); //wait for 
       }
-      else if (currentState == STATE_DRIVE)
-      {
-        driveSupervisor.execute(count1, count2, yaw, dt); //1/20
-        // driveSupervisor.execute(readLeftEncoder(), readRightEncoder(), yaw, dt); //1/20
-        driveSupervisor.getIRDistances(irDistance);
-        pos = driveSupervisor.getRobotPosition();
-      }
-      else
-      {
-        supervisor.readIRDistances(irDistance);
-      }
+    }
+    else if (currentState == STATE_DRIVE)
+    {
+      m_output = driveSupervisor.execute(&robot, yaw, dt); //1/20
+    }
 
-//report Robot States
-    // sendRobotStateValue( pos, irDistance, batteryVoltage);
-    sendRobotStateWithCounter(pos, irDistance[2], batteryVoltage, idt);
+    int pwm_l = robot.vel_l_to_pwm(m_output.vel_l );
+    int pwm_r = robot.vel_r_to_pwm(m_output.vel_r );
 
+
+    if (mSimulateMode)
+    {
+      m_left_ticks = m_left_ticks + robot.pwm_to_ticks_l( pwm_l, dt);
+      m_right_ticks = m_right_ticks + robot.pwm_to_ticks_r(pwm_r, dt);
+
+    }
+    else
+    {
+      MoveLeftMotor(pwm_l);
+      MoveRightMotor(pwm_r);
+    }
+
+
+    if( info_required == 1 && (currentState == STATE_GOTOGOAL || currentState == STATE_DRIVE))
+    {
+      byte ctrl_info[20];
+      ctrl_info[0] = 0xA3;
+      ctrl_info[1] = 16;
+      floatToByte(ctrl_info + 2, robot.velocity, 1000);
+      floatToByte(ctrl_info + 4, robot.w, 1000);
+      floatToByte(ctrl_info + 6, m_output.m_v, 1000);
+      floatToByte(ctrl_info + 8, m_output.m_w, 1000);
+      floatToByte(ctrl_info + 10, m_output.v, 1000);
+      floatToByte(ctrl_info + 12, m_output.w, 1000);
+      floatToByte(ctrl_info + 14, m_output.vel_l, 1000);
+      floatToByte(ctrl_info + 16, m_output.vel_r, 1000);
+      sendBleMessages(ctrl_info, 18);
+    }
+
+  //report Robot States
+  // sendRobotStateValue( pos, irDistance, batteryVoltage);
+   sendRobotStateWithCounter(&robot, ultrasonicDistance, batteryVoltage, idt);
 
     unsigned int execTime =  millis() - millisNow;
     if( execTime > loopExecuteTime)
@@ -294,19 +322,6 @@ void sendIMURawData()
   Serial.flush();          
 }
 
-Position getRobotPosition()
-{
-    if (currentState == STATE_DRIVE)
-    {
-      return driveSupervisor.getRobotPosition();
-    }
-    else
-    {
-      return supervisor.getRobotPosition();
-    }
-    
-}
-
 double getYaw()
 {
   return mIMU.getYaw();
@@ -333,37 +348,27 @@ void startGoToGoal()
 {
   if (currentState == STATE_GOTOGOAL)
     return;
-
-  stopRobot(); //stop currentState
-
   // supervisor.updateSettings(mSettings);
   Serial.print("Start GTG:");
   Serial.print(supervisor.m_Goal.x);
   Serial.print(",");
   Serial.println(supervisor.m_Goal.y);
-
-  // to test set goal y to 0
-  supervisor.reset(readLeftEncoder(), readRightEncoder());
+  supervisor.reset();
   currentState = STATE_GOTOGOAL;
-
-  const int oneSecInUsec = 1000000;                     // A second in mirco second unit.
-  // CurieTimerOne.start(oneSecInUsec / 20, &goToGoalIsr); // set timer and callback //the controller loop need 30ms to exec
 }
 
 void goToGoalIsr()
 {
   bExecGTG = true;
-  // supervisor.execute(readLeftEncoder(), readRightEncoder(), 0.05);
 }
 
 void ResetRobot()
 {
-  supervisor.resetRobot();
-  driveSupervisor.resetRobot();
-
   resetCounter();
-  // count1 = 0;
-  // count2 = 0;
+  robot.x = 0;
+  robot.y = 0;
+  robot.theta = 0;
+
   pos.x = 0;
   pos.y = 0;
   pos.theta = 0;
@@ -371,32 +376,22 @@ void ResetRobot()
 
 void startDrive()
 {
-  // if ( currentState >= 2 )
-  //   return;
-
   Serial.println("Start DRV!");
   currentState = STATE_DRIVE;
-
-  // to test set goal y to 0
-  driveSupervisor.reset(readLeftEncoder(), readRightEncoder());
-  //   currentState = STATE_DRIVE;
-
-  // const int oneSecInUsec = 1000000; // A second in mirco second unit.
-  // // time = oneSecInUsec / 100; // time is used to toggle the LED is divided by i
-  // CurieTimerOne.start(oneSecInUsec / 20, &driveIsr); // set timer and callback
+  driveSupervisor.reset(robot.theta);
 }
 
 void driveIsr()
 {
   bExecDrive = true;
-  // driveSupervisor.execute(readLeftEncoder(), readRightEncoder(), 0.05); //1/20
 }
+
 
 void SetSimulateMode(int val)
 {
-  // supervisor.mSimulateMode = val;
-  supervisor.setSimulateMode(val);
-  driveSupervisor.mSimulateMode = (val != 0);
+  mSimulateMode = val;
+  m_left_ticks = 0;
+  m_right_ticks = 0;
   if (val != 0 )
   {
     doCheckBattleVoltage = false;
@@ -421,21 +416,7 @@ void SetIgnoreObstacle(bool igm)
 void stopRobot()
 {
   blinkLed.normalBlink();
-  // CurieTimerOne.kill();
   StopMotor();
-  // delay(100);
-  if (currentState == STATE_DRIVE)
-  {
-    driveSupervisor.update(readLeftEncoder(), readRightEncoder(), 0.03); //处理当前运动的惯性
-    Position pos = driveSupervisor.getRobotPosition();
-    supervisor.setRobotPosition(pos.x, pos.y, pos.theta);
-  }
-  else if (currentState == STATE_GOTOGOAL)
-  {
-    supervisor.update(readLeftEncoder(), readRightEncoder(), 0.03);  //处理当前运动的惯性
-    Position pos = supervisor.getRobotPosition();
-    driveSupervisor.setRobotPosition(pos.x, pos.y, pos.theta);
-  }
   currentState = STATE_IDLE;
 }
 
@@ -448,14 +429,15 @@ void setDriveGoal(double v, double w)
     {
       v = 0;
       w = 0;
-      stopRobot();
+      //todo  stop motor
+      StopMotor();
+      currentState = STATE_IDLE;
     }
     // else
     driveSupervisor.setGoal(v, w);
   }
   else
   {
-    stopRobot(); //stop currentState
     startDrive();
     driveSupervisor.setGoal(v, w);
   }
@@ -468,7 +450,7 @@ void turnAround(int dir, int angle, bool useIMU )
     stopRobot(); //stop currentState
     startDrive();
   }
-  driveSupervisor.turnAround(dir, angle, useIMU, mIMU.getYawRadians() );
+  driveSupervisor.turnAround(dir, angle, useIMU, robot.theta, mIMU.getYawRadians() );
 }
 
 void turnAround(int dir, int angle, double w )
@@ -478,7 +460,7 @@ void turnAround(int dir, int angle, double w )
     stopRobot(); //stop currentState
     startDrive();
   }
-  driveSupervisor.turnAround(dir, angle, w, mIMU.getYawRadians() );
+  driveSupervisor.turnAround(dir, angle, w,  robot.theta, mIMU.getYawRadians() );
 }
 
 
@@ -633,8 +615,7 @@ void setIMUFilter(int iFilter, bool withMag )
 void setUseIMU(bool useImu,  float alpha )
 {
     mUseIMU = useImu;
-    driveSupervisor.setUseIMU(useImu, alpha);
-    supervisor.setUseIMU(useImu, alpha);
+    robot.setUseIMU(useImu, alpha);
     log("use IMU:%d,%s\n", useImu, floatToStr(0, alpha));
 
 }
