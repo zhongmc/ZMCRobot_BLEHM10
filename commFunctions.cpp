@@ -73,8 +73,8 @@ unsigned long lastBLEStateSend;
 void sendRobotStateWithCounter(Robot *robot, double ultraDist, double voltage, int idt)
 {
  
-  byte buf[20];
-  memset(buf, 0, 20);
+  byte buf[24];
+  memset(buf, 0, 24);
 
   buf[0] = 0xA1;  //A为二进制报文标志，1 为报文类型
   buf[1] = 18;   //长度
@@ -92,12 +92,6 @@ void sendRobotStateWithCounter(Robot *robot, double ultraDist, double voltage, i
   longToBytes(count1, buf + 10);
   longToBytes(count2, buf + 14);
 
-  for (int i = 0; i < 20; i++)
-  {
-     Serial.write(*(buf + i));
-  }
-  Serial.flush();
-
   int bleInterval = millis() - lastBLEStateSend;
   bleStCnt++;
 
@@ -108,6 +102,17 @@ void sendRobotStateWithCounter(Robot *robot, double ultraDist, double voltage, i
     lastBLEStateSend = millis();
     sendBleMessages( buf, 20);
   }
+
+  //2021-01-25 add v, w to serial msg
+  buf[1] = 22;   //长度
+  floatToByte(buf + 20, robot->velocity, scale);
+  floatToByte(buf + 22, robot->w, scale);
+
+  for (int i = 0; i < 24; i++)
+  {
+     Serial.write(*(buf + i));
+  }
+  Serial.flush();
 }
 
 // x, y, theta, v, d0,d1,d2,d3,d4,voltage
@@ -139,7 +144,6 @@ void sendRobotStateValue( Position pos, double irDistance[5], double voltage)
   }
   Serial.flush();
   bleStCnt++;
-
   int bleInterval = millis() - lastBLEStateSend;
 
   if( bleInterval >= 50 || bleStCnt >= 3)
@@ -148,6 +152,8 @@ void sendRobotStateValue( Position pos, double irDistance[5], double voltage)
     lastBLEStateSend = millis();
     sendBleMessages( buf, 15);
   }
+
+
 }
 
 
